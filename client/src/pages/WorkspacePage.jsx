@@ -9,7 +9,7 @@ import SidePanel, { PanelSheet } from '../components/SidePanel.jsx';
 import DeepDivePanel from '../components/DeepDivePanel.jsx';
 import ResearchPanel from '../components/ResearchPanel.jsx';
 import CommentsPanel from '../components/CommentsPanel.jsx';
-import ExportMenu from '../components/ExportMenu.jsx';
+import ExportScript from '../components/ExportScript.jsx';
 import ShareDialog from '../components/ShareDialog.jsx';
 import ShortcutsSheet from '../components/ShortcutsSheet.jsx';
 import AuthModal from '../components/AuthModal.jsx';
@@ -33,7 +33,7 @@ const PANEL_TABS = [
 
 export default function WorkspacePage() {
   const workspace = useOutlineWorkspace();
-  const { outline, form, activeProjectId, dirty, savedAt, demoId, setActiveProject, loadProject, loadDemo, markSaved } = workspace;
+  const { outline, form, activeProjectId, dirty, savedAt, demoId, setActiveProject, loadProject, loadDemo, markSaved, getDeepDive } = workspace;
   const location = useLocation();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -250,6 +250,15 @@ export default function WorkspacePage() {
     { id: 'intro', label: 'Intro and outro' },
   ];
   const meta = { podcastName: form.podcastName, hostCount: form.hostCount };
+  // Deep Dive notes that still match their segment; stale ones are left out of the printout.
+  const researchNotes = useMemo(() => {
+    const notes = {};
+    for (const segment of outline?.segments ?? []) {
+      const entry = getDeepDive(segment);
+      if (entry && !entry.stale) notes[segment.id] = entry.data;
+    }
+    return notes;
+  }, [outline, getDeepDive]);
   const status = saveStatus({ hasOutline: Boolean(outline), isAuthenticated, activeProjectId, dirty, savedAt });
 
   return (
@@ -286,7 +295,7 @@ export default function WorkspacePage() {
                       {saving ? 'Saving…' : 'Save'}
                     </button>
                     <button type="button" className="btn" onClick={handleShare}>Share</button>
-                    <ExportMenu outline={outline} meta={meta} />
+                    <ExportScript outline={outline} meta={meta} researchNotes={researchNotes} />
                   </div>
                 </div>
 

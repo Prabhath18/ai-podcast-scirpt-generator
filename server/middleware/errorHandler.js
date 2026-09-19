@@ -16,6 +16,10 @@ const STATUS_BY_CODE = {
   LLM_NOT_CONFIGURED: 503,
   LLM_INVALID_RESPONSE: 502,
   LLM_EMPTY_RESPONSE: 502,
+  LLM_PROVIDER_ERROR: 502,
+  LLM_AUTH: 502,
+  LLM_RATE_LIMITED: 429,
+  LLM_TIMEOUT: 504,
 };
 
 /** Wraps an async Express handler so rejected promises reach the error middleware. */

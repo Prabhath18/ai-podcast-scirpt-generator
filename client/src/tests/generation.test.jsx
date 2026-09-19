@@ -107,6 +107,10 @@ describe('inline generation error', () => {
       [failWith(429, 'RATE_LIMITED'), /Too many requests/],
       [failWith(503, 'LLM_NOT_CONFIGURED'), /isn't set up yet/],
       [failWith(500, 'INTERNAL_ERROR', 'The server exploded.'), /The server exploded\./],
+      // errors from an AI provider such as Hugging Face: a plain title, and the server's own explanation
+      [failWith(504, 'LLM_TIMEOUT', 'Hugging Face did not answer within 60 seconds.'), /The model took too long/],
+      [failWith(429, 'LLM_RATE_LIMITED', 'Hugging Face reports the free monthly credits are used up.'), /provider's limit was reached/],
+      [failWith(502, 'LLM_AUTH', 'Hugging Face rejected the request (HTTP 401). Check that HF_TOKEN is valid.'), /The AI provider had a problem/],
     ];
     for (const [generate, expected] of cases) {
       mockApi({ generate });

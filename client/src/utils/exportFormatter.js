@@ -1,11 +1,12 @@
 // Turns the current outline (including whatever the user has edited) into
 // downloadable formats. Pure functions, no DOM/browser APIs, so they're
-// easy to unit test and reused by both the "Download Script" button and
+// easy to unit test and reused by both the "Export Script" dialog and
 // scripts/buildSampleOutput.mjs (which regenerates sample-output/).
 //
 // Every formatter takes (outline, meta, options):
 //   meta     { podcastName, hostCount }
 //   options  { includeSources }  pinned sources are listed only when true
+// The print formatter also understands includeGuestQuestions and researchNotes (see printableBody).
 import { segmentTimings } from './durationMath.js';
 
 const HOST_COUNT_LABEL = { solo: 'Solo', duo: 'Duo', group: 'Group' };
@@ -169,47 +170,69 @@ function isHttpUrl(url) {
   return /^https?:\/\//i.test(url);
 }
 
-const PRINT_STYLES = `
+// Everything below is scoped under `.script`, so the same styles serve the standalone
+// HTML file and the in-app Print Preview. The screen look is a white sheet; the print
+// look (@media print) is plain black on white, with everything that is not the script
+// hidden: the app (#root), the preview toolbar, and any control.
+export const PRINT_STYLES = `
   @page { size: A4; margin: 18mm 16mm 20mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; color: #1f2937; background: #fff; font: 11pt/1.5 Newsreader, Georgia, 'Times New Roman', serif; }
-  .mono, .time, .kicker, .speaker, .no-print { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
-  .sheet { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
-  .no-print { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
-  .no-print button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
-  .title-block { border-bottom: 2px solid #1f2937; padding-bottom: 10pt; margin-bottom: 14pt; }
-  .kicker { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
-  h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
-  .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
-  .facts b { font-weight: 600; color: #1f2937; }
-  .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
-  .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #e5e7eb; break-inside: avoid; page-break-inside: avoid; }
-  .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
-  .time strong { display: block; color: #1f2937; font-weight: 600; }
-  h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; }
-  h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
-  .label { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; }
-  p { margin: 0 0 5pt; }
-  .turn { padding-left: 14mm; text-indent: -14mm; }
-  .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
-  ul, ol { margin: 0 0 5pt; padding-left: 16pt; }
-  li { margin-bottom: 2pt; }
-  .transition { font-style: italic; color: #374151; }
-  .sources { margin-top: 6pt; font-size: 9.5pt; }
-  .sources a { color: #1f2937; }
-  .sources .note { color: #4b5563; font-style: italic; }
-  @media print { .no-print { display: none; } .sheet { padding: 0; max-width: none; } }
+  @page { @bottom-right { content: counter(page); font: 8pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #000; } }
+  .script, .script * { box-sizing: border-box; }
+  .script { margin: 0; color: #111827; background: #fff; overflow-wrap: anywhere; font: 11pt/1.55 Newsreader, Georgia, 'Times New Roman', serif; }
+  .script .mono, .script .time, .script .label, .script .speaker, .script .facts, .script .url, .script .doc-toolbar { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+  .script .page { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
+  .script .doc-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
+  .script .doc-toolbar button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
+  .script .title-block { border-bottom: 2px solid #111827; padding-bottom: 10pt; margin-bottom: 14pt; break-after: avoid; page-break-after: avoid; }
+  .script .kicker { font: 8.5pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
+  .script h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
+  .script .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
+  .script .facts b { font-weight: 600; color: #111827; }
+  .script .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
+  .script .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #d1d5db; break-inside: avoid; page-break-inside: avoid; }
+  .script .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
+  .script .time strong { display: block; color: #111827; font-weight: 600; }
+  .script h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; page-break-after: avoid; }
+  .script h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
+  .script .label { font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; break-after: avoid; }
+  .script p { margin: 0 0 5pt; orphans: 3; widows: 3; }
+  .script .turn { padding-left: 14mm; text-indent: -14mm; }
+  .script .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
+  /* The app's CSS reset removes list markers; the script must put them back. */
+  .script ul, .script ol { margin: 0 0 5pt; padding-left: 16pt; }
+  .script ul { list-style: disc outside; }
+  .script ol { list-style: decimal outside; }
+  .script li { margin-bottom: 2pt; orphans: 2; widows: 2; }
+  .script .transition { font-style: italic; color: #374151; }
+  .script .notes, .script .sources { margin-top: 7pt; padding-top: 5pt; border-top: 0.5pt solid #d1d5db; font-size: 10pt; }
+  .script .sources a { color: #111827; }
+  .script .sources .note { color: #4b5563; font-style: italic; }
+  .script .url { display: block; font-size: 7.5pt; color: #4b5563; }
+  @media print {
+    html, body { background: #fff !important; }
+    #root, .no-print, .script .doc-toolbar { display: none !important; }
+    .print-root { position: static !important; inset: auto !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+    .script .page { max-width: none; padding: 0; border: 0; box-shadow: none; }
+    .script, .script * { color: #000 !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+    .script a { text-decoration: none; }
+  }
 `;
 
+const nonBlank = (items) => (Array.isArray(items) ? items.filter((item) => typeof item === 'string' && item.trim()) : []);
+
 /**
- * Full standalone HTML document laid out as a production script: a title
- * block, then one row per part with a timing column on the left. Segments and
- * short sections never split across a page.
+ * The finished script as HTML, laid out as a production script: a title block, then one
+ * row per part with a timing column on the left. Segments and short sections never split
+ * across a page. Every value is escaped. Sections with nothing to show are left out.
+ *
+ * options: { includeSources, includeGuestQuestions (default true), researchNotes }
+ * where researchNotes maps a segment id to { notes, discussion_prompts } (Deep Dive).
  */
-export function toPrintableHtml(outline, meta = {}, options = {}) {
+export function printableBody(outline, meta = {}, options = {}) {
   const timings = segmentTimings(outline.segments);
   const teaser = outline.intro_outro?.teaser?.trim();
   const facts = [
+    meta.podcastName ? ['Podcast', meta.podcastName] : null,
     meta.hostCount ? ['Hosts', HOST_COUNT_LABEL[meta.hostCount] || meta.hostCount] : null,
     ['Tone', outline.tone],
     ['Runtime', formatDuration(outline.total_duration_mins)],
@@ -217,18 +240,31 @@ export function toPrintableHtml(outline, meta = {}, options = {}) {
 
   const segmentRows = outline.segments
     .map((segment, index) => {
+      const points = nonBlank(segment.talking_points);
       const sources = pinnedSources(segment, options).filter((s) => isHttpUrl(s.url));
+      const research = options.researchNotes?.[segment.id];
+      const researchParagraphs = research?.notes ? String(research.notes).split(/\n{2,}/).filter((t) => t.trim()) : [];
+      const prompts = nonBlank(research?.discussion_prompts);
+      const hasResearch = researchParagraphs.length > 0 || prompts.length > 0;
+
       return `
   <section class="row">
     <div class="time"><strong>${timings[index].start}</strong>to ${timings[index].end}<br />${formatDuration(segment.duration_mins)}</div>
     <div>
       <h2><span class="num">${String(index + 1).padStart(2, '0')}</span>${escapeHtml(segment.title)}</h2>
-      <ul>${segment.talking_points.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>
-      ${segment.transition ? `<p class="transition">Transition: ${escapeHtml(segment.transition)}</p>` : ''}
+      ${points.length ? `<ul>${points.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}
+      ${segment.transition?.trim() ? `<p class="transition">Transition: ${escapeHtml(segment.transition)}</p>` : ''}
+      ${
+        hasResearch
+          ? `<div class="notes"><p class="label">Research notes</p>${researchParagraphs.map((t) => `<p>${escapeHtml(t)}</p>`).join('')}${
+              prompts.length ? `<p class="label">Follow-up prompts</p><ul>${prompts.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''
+            }</div>`
+          : ''
+      }
       ${
         sources.length
           ? `<div class="sources"><p class="label">Sources <span class="note">(verify before citing)</span></p><ul>${sources
-              .map((s) => `<li><a href="${escapeHtml(s.url)}">${escapeHtml(s.title)}</a></li>`)
+              .map((s) => `<li>${escapeHtml(s.title)}<span class="url">${escapeHtml(s.url)}</span></li>`)
               .join('')}</ul></div>`
           : ''
       }
@@ -239,7 +275,24 @@ export function toPrintableHtml(outline, meta = {}, options = {}) {
 
   const block = (label, body) =>
     `<section class="row"><div class="time"><strong>${label}</strong></div><div>${body}</div></section>`;
+  const questions = options.includeGuestQuestions === false ? [] : nonBlank(outline.guest_questions);
 
+  return `<div class="page">
+    <header class="title-block">
+      <p class="kicker">Production script</p>
+      <h1>${escapeHtml(outline.episode_title)}</h1>
+      <p class="facts">${facts.map(([k, v]) => `<span><b>${k}</b> ${escapeHtml(v)}</span>`).join('')}</p>
+      ${teaser ? `<p class="teaser">${escapeHtml(teaser)}</p>` : ''}
+    </header>
+    ${outline.intro?.trim() ? block('Open', `<h2>Opening hook and introduction</h2>${scriptHtml(outline.intro)}`) : ''}
+    ${segmentRows}
+    ${questions.length ? block('Guest', `<h2>Guest Questions</h2><ol>${questions.map((q) => `<li>${escapeHtml(q)}</li>`).join('')}</ol>`) : ''}
+    ${outline.outro?.trim() ? block('Close', `<h2>Outro and call to action</h2>${scriptHtml(outline.outro)}`) : ''}
+  </div>`;
+}
+
+/** A complete standalone HTML file of the script, with its own print button (used for the sample exports). */
+export function toPrintableHtml(outline, meta = {}, options = {}) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -249,23 +302,10 @@ export function toPrintableHtml(outline, meta = {}, options = {}) {
 <style>${PRINT_STYLES}</style>
 </head>
 <body>
-  <div class="no-print"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
-  <main class="sheet">
-    <header class="title-block">
-      <p class="kicker">${escapeHtml(meta.podcastName || 'Episode script')}</p>
-      <h1>${escapeHtml(outline.episode_title)}</h1>
-      <p class="facts">${facts.map(([k, v]) => `<span><b>${k}</b> ${escapeHtml(v)}</span>`).join('')}</p>
-      ${teaser ? `<p class="teaser">${escapeHtml(teaser)}</p>` : ''}
-    </header>
-    ${outline.intro ? block('Open', `<h2>Intro</h2>${scriptHtml(outline.intro)}`) : ''}
-    ${segmentRows}
-    ${
-      outline.guest_questions?.length
-        ? block('Guest', `<h2>Guest Questions</h2><ol>${outline.guest_questions.map((q) => `<li>${escapeHtml(q)}</li>`).join('')}</ol>`)
-        : ''
-    }
-    ${outline.outro ? block('Close', `<h2>Outro</h2>${scriptHtml(outline.outro)}`) : ''}
-  </main>
+  <div class="script">
+    <div class="doc-toolbar"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
+    ${printableBody(outline, meta, options)}
+  </div>
 </body>
 </html>
 `;

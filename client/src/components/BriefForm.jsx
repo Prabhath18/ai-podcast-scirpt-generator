@@ -75,6 +75,15 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
     if (code === 'LLM_INVALID_RESPONSE') {
       return { title: "The outline didn't pass checks", message: "The model's answer failed validation, even after an automatic retry. Retrying usually works; a narrower topic can help." };
     }
+    if (code === 'LLM_TIMEOUT') {
+      return { title: 'The model took too long', message: `${err.message} Retrying often works once the model is warm.` };
+    }
+    if (code === 'LLM_RATE_LIMITED') {
+      return { title: "The AI provider's limit was reached", message: err.message };
+    }
+    if (code === 'LLM_AUTH' || code === 'LLM_PROVIDER_ERROR') {
+      return { title: 'The AI provider had a problem', message: err.message };
+    }
     if (code === 'NETWORK_ERROR') {
       return { title: "Can't reach the server", message: 'Check your connection and that the API is running, then retry.' };
     }

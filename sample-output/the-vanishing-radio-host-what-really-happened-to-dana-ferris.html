@@ -6,46 +6,59 @@
 <title>The Vanishing Radio Host: What Really Happened to Dana Ferris?</title>
 <style>
   @page { size: A4; margin: 18mm 16mm 20mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; color: #1f2937; background: #fff; font: 11pt/1.5 Newsreader, Georgia, 'Times New Roman', serif; }
-  .mono, .time, .kicker, .speaker, .no-print { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
-  .sheet { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
-  .no-print { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
-  .no-print button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
-  .title-block { border-bottom: 2px solid #1f2937; padding-bottom: 10pt; margin-bottom: 14pt; }
-  .kicker { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
-  h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
-  .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
-  .facts b { font-weight: 600; color: #1f2937; }
-  .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
-  .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #e5e7eb; break-inside: avoid; page-break-inside: avoid; }
-  .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
-  .time strong { display: block; color: #1f2937; font-weight: 600; }
-  h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; }
-  h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
-  .label { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; }
-  p { margin: 0 0 5pt; }
-  .turn { padding-left: 14mm; text-indent: -14mm; }
-  .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
-  ul, ol { margin: 0 0 5pt; padding-left: 16pt; }
-  li { margin-bottom: 2pt; }
-  .transition { font-style: italic; color: #374151; }
-  .sources { margin-top: 6pt; font-size: 9.5pt; }
-  .sources a { color: #1f2937; }
-  .sources .note { color: #4b5563; font-style: italic; }
-  @media print { .no-print { display: none; } .sheet { padding: 0; max-width: none; } }
+  @page { @bottom-right { content: counter(page); font: 8pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #000; } }
+  .script, .script * { box-sizing: border-box; }
+  .script { margin: 0; color: #111827; background: #fff; overflow-wrap: anywhere; font: 11pt/1.55 Newsreader, Georgia, 'Times New Roman', serif; }
+  .script .mono, .script .time, .script .label, .script .speaker, .script .facts, .script .url, .script .doc-toolbar { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+  .script .page { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
+  .script .doc-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
+  .script .doc-toolbar button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
+  .script .title-block { border-bottom: 2px solid #111827; padding-bottom: 10pt; margin-bottom: 14pt; break-after: avoid; page-break-after: avoid; }
+  .script .kicker { font: 8.5pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
+  .script h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
+  .script .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
+  .script .facts b { font-weight: 600; color: #111827; }
+  .script .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
+  .script .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #d1d5db; break-inside: avoid; page-break-inside: avoid; }
+  .script .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
+  .script .time strong { display: block; color: #111827; font-weight: 600; }
+  .script h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; page-break-after: avoid; }
+  .script h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
+  .script .label { font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; break-after: avoid; }
+  .script p { margin: 0 0 5pt; orphans: 3; widows: 3; }
+  .script .turn { padding-left: 14mm; text-indent: -14mm; }
+  .script .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
+  /* The app's CSS reset removes list markers; the script must put them back. */
+  .script ul, .script ol { margin: 0 0 5pt; padding-left: 16pt; }
+  .script ul { list-style: disc outside; }
+  .script ol { list-style: decimal outside; }
+  .script li { margin-bottom: 2pt; orphans: 2; widows: 2; }
+  .script .transition { font-style: italic; color: #374151; }
+  .script .notes, .script .sources { margin-top: 7pt; padding-top: 5pt; border-top: 0.5pt solid #d1d5db; font-size: 10pt; }
+  .script .sources a { color: #111827; }
+  .script .sources .note { color: #4b5563; font-style: italic; }
+  .script .url { display: block; font-size: 7.5pt; color: #4b5563; }
+  @media print {
+    html, body { background: #fff !important; }
+    #root, .no-print, .script .doc-toolbar { display: none !important; }
+    .print-root { position: static !important; inset: auto !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+    .script .page { max-width: none; padding: 0; border: 0; box-shadow: none; }
+    .script, .script * { color: #000 !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+    .script a { text-decoration: none; }
+  }
 </style>
 </head>
 <body>
-  <div class="no-print"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
-  <main class="sheet">
+  <div class="script">
+    <div class="doc-toolbar"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <div class="page">
     <header class="title-block">
-      <p class="kicker">Episode script</p>
+      <p class="kicker">Production script</p>
       <h1>The Vanishing Radio Host: What Really Happened to Dana Ferris?</h1>
       <p class="facts"><span><b>Tone</b> Investigative</span><span><b>Runtime</b> 50 mins</span></p>
       <p class="teaser">Twelve minutes of dead air, and a case that never closed.</p>
     </header>
-    <section class="row"><div class="time"><strong>Open</strong></div><div><h2>Intro</h2><p>On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off her show at 2 a.m. and was never seen again. No body, no confirmed sighting, and a case file that police quietly closed nine years later. Tonight we walk through the timeline, the four suspects investigators never fully cleared, and a piece of evidence that resurfaced just last year and reopened the question everyone thought was settled.</p></div></section>
+    <section class="row"><div class="time"><strong>Open</strong></div><div><h2>Opening hook and introduction</h2><p>On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off her show at 2 a.m. and was never seen again. No body, no confirmed sighting, and a case file that police quietly closed nine years later. Tonight we walk through the timeline, the four suspects investigators never fully cleared, and a piece of evidence that resurfaced just last year and reopened the question everyone thought was settled.</p></div></section>
     
   <section class="row">
     <div class="time"><strong>00:00</strong>to 07:00<br />7 mins</div>
@@ -53,6 +66,7 @@
       <h2><span class="num">01</span>The Last Broadcast</h2>
       <ul><li>Reconstruct the final hour of Dana Ferris&#39;s show from the station&#39;s surviving call logs and a surviving cassette recording</li><li>Note the strange, unscheduled call she took at 1:42 a.m. that station staff couldn&#39;t later identify</li><li>Describe the parking lot she walked to alone every night, and why station management had flagged it as unsafe six months earlier</li><li>Establish the exact last-confirmed-sighting timestamp: 2:07 a.m., by a gas station clerk two blocks away</li></ul>
       <p class="transition">Transition: That gas station sighting is the last confirmed trace of her. Everything after that is reconstruction.</p>
+      
       
     </div>
   </section>
@@ -64,6 +78,7 @@
       <ul><li>Police didn&#39;t open a missing-persons file until 36 hours had passed, citing her history of unannounced trips</li><li>Her apartment was never sealed as a scene until day four, by which point her sister had already been inside cleaning</li><li>The original detective&#39;s notes, obtained via records request, show he considered it a voluntary disappearance almost immediately</li><li>Contrast this with the department&#39;s own missing-persons protocol at the time, which called for scene preservation within 24 hours</li></ul>
       <p class="transition">Transition: Those early mistakes mean a lot of physical evidence is simply gone. So the case leans heavily on people -- starting with who had a motive.</p>
       
+      
     </div>
   </section>
 
@@ -73,6 +88,7 @@
       <h2><span class="num">03</span>Suspect One and Two: The Co-Host and the Ex-Producer</h2>
       <ul><li>Her longtime co-host had been quietly pushed out of a joint contract renewal two weeks prior</li><li>The ex-producer had a restraining order filed against him by a different woman just eight months later</li><li>Both had alibis that check out on paper but rely entirely on each other as witnesses</li><li>A financial detail: Dana had recently discovered a discrepancy in show sponsorship payments routed through the producer</li></ul>
       <p class="transition">Transition: Neither of them was ever charged. But there&#39;s a third name that appears in the file far less often than it should.</p>
+      
       
     </div>
   </section>
@@ -84,6 +100,7 @@
       <ul><li>The overnight engineer&#39;s shift log shows he clocked out 40 minutes before his usual time that night, unexplained</li><li>He was interviewed once, for eleven minutes, and never re-contacted despite inconsistencies in his statement</li><li>A coworker&#39;s account, never entered into the official file, describes tension between him and Dana over a canceled segment</li><li>Why investigators today believe this lead was under-pursued, and what re-interviewing him decades later might reveal</li></ul>
       <p class="transition">Transition: For years, that was where the trail went cold. Then, last spring, something changed.</p>
       
+      
     </div>
   </section>
 
@@ -93,6 +110,7 @@
       <h2><span class="num">05</span>The 2025 Discovery That Reopened the Case</h2>
       <ul><li>A storage unit auction turned up a box of station archives, including a second, previously unknown recording from that night</li><li>Forensic audio analysis identifies a second voice in the background of the recording, not previously in any suspect list</li><li>The current department&#39;s renewed statement, and why they&#39;re treating this as an active reinvestigation rather than a cold case footnote</li><li>What forensic genealogy techniques -- unavailable in 1997 -- could now do with evidence that was preserved</li></ul>
       <p class="transition">Transition: All of this brings us to tonight&#39;s guest, who worked adjacent to this case for over a decade.</p>
+      
       
     </div>
   </section>
@@ -104,10 +122,12 @@
       <ul><li>Lay out the three leading theories side by side: co-host/producer conspiracy, engineer confrontation gone wrong, and a stranger abduction</li><li>Which theory the surviving physical evidence actually supports best, and which it rules out</li><li>Address the persistent audience theory that Dana staged her own disappearance, and why the financial and behavioral evidence argues against it</li><li>What would need to be true for this case to ever reach a courtroom after 28 years</li></ul>
       <p class="transition">Transition: Before we close, let&#39;s hear directly from someone who spent years around the edges of this investigation.</p>
       
+      
     </div>
   </section>
     <section class="row"><div class="time"><strong>Guest</strong></div><div><h2>Guest Questions</h2><ol><li>You reviewed the original case file for your reporting -- what&#39;s the one detail in there that other outlets have consistently missed?</li><li>When you interviewed people who knew Dana, was there a name that came up more than the official suspect list would suggest?</li><li>How reliable is 28-year-old forensic audio evidence in a case like this, in your experience?</li><li>Departments often resist reopening cases that were effectively closed -- what changed here?</li><li>If you had to bet on one of the three leading theories, which one, and why?</li><li>What would meaningful justice even look like for this family after almost three decades?</li></ol></div></section>
-    <section class="row"><div class="time"><strong>Close</strong></div><div><h2>Outro</h2><p>That&#39;s where the case stands tonight: reopened, but far from resolved. If you have information related to the disappearance of Dana Ferris, the tip line in our show notes is monitored directly by investigators. Follow the show so you don&#39;t miss part two, where we go inside the new forensic analysis. Until then, stay curious, and stay careful.</p></div></section>
-  </main>
+    <section class="row"><div class="time"><strong>Close</strong></div><div><h2>Outro and call to action</h2><p>That&#39;s where the case stands tonight: reopened, but far from resolved. If you have information related to the disappearance of Dana Ferris, the tip line in our show notes is monitored directly by investigators. Follow the show so you don&#39;t miss part two, where we go inside the new forensic analysis. Until then, stay curious, and stay careful.</p></div></section>
+  </div>
+  </div>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toMarkdown, toPlainText, toPrintableHtml, slugify } from '../utils/exportFormatter.js';
+import { toMarkdown, toPlainText, toPrintableHtml, printableBody, PRINT_STYLES, slugify } from '../utils/exportFormatter.js';
 
 const sampleOutline = {
   episode_title: 'Test Episode & "Friends"',
@@ -111,9 +111,9 @@ describe('pinned sources in exports', () => {
     expect(toPlainText(withExtras(), {}, { includeSources: true })).toContain('Jazz <b>: https://en.wikipedia.org/wiki/Jazz');
   });
 
-  it('escapes titles and drops non-http links in the printable HTML', () => {
+  it('prints the URL as text (paper cannot click), escapes titles, and drops non-http links', () => {
     const html = toPrintableHtml(withExtras(), {}, { includeSources: true });
-    expect(html).toContain('<a href="https://en.wikipedia.org/wiki/Jazz">Jazz &lt;b&gt;</a>');
+    expect(html).toContain('Jazz &lt;b&gt;<span class="url">https://en.wikipedia.org/wiki/Jazz</span>');
     expect(html).not.toContain('javascript:');
   });
 });
@@ -143,5 +143,141 @@ describe('slugify', () => {
 
   it('falls back to "episode" for an empty/unsafe string', () => {
     expect(slugify('!!!')).toBe('episode');
+  });
+});
+
+
+// --- Print / PDF workflow -------------------------------------------------------------
+
+const fullOutline = () => ({
+  episode_title: 'The Full Script',
+  tone: 'Educational',
+  total_duration_mins: 20,
+  intro: 'Host 1: Welcome in.\nHost 2: Glad to be here.',
+  segments: [
+    { id: 1, title: 'First part', talking_points: ['Point A', 'Point B', 'Point C'], duration_mins: 12, transition: 'Now the second part.', sources: [{ type: 'wikipedia', title: 'Jazz', url: 'https://en.wikipedia.org/wiki/Jazz', summary: 'x' }] },
+    { id: 2, title: 'Second part', talking_points: ['Point D', 'Point E', 'Point F'], duration_mins: 8, transition: '' },
+  ],
+  guest_questions: ['Where did it start?', 'What changed?'],
+  outro: 'Thanks for listening. Subscribe!',
+});
+const meta = { podcastName: 'The Weekly Signal', hostCount: 'duo' };
+const research = { 1: { notes: 'First paragraph.\n\nSecond <b>paragraph</b>.', discussion_prompts: ['Ask about X?', 'Ask about Y?'] } };
+const body = (options) => printableBody(fullOutline(), meta, options);
+
+describe('print body: required sections', () => {
+  it('contains every section of the finished script', () => {
+    const html = body({ includeSources: true, researchNotes: research });
+    for (const expected of [
+      'The Full Script', // episode title
+      'The Weekly Signal', // podcast name
+      'Duo', // host information
+      'Educational', // tone
+      '20 mins', // total duration
+      'Opening hook and introduction',
+      'Welcome in.',
+      'First part', '12 mins', 'Point A', 'Point C', // segment, duration, talking points
+      'Transition: Now the second part.',
+      'Second part', '8 mins',
+      'Guest Questions', 'Where did it start?',
+      'Outro and call to action', 'Subscribe!',
+      'Research notes', 'First paragraph.', 'Follow-up prompts', 'Ask about X?',
+      'Sources', 'https://en.wikipedia.org/wiki/Jazz',
+    ]) {
+      expect(html).toContain(expected);
+    }
+  });
+
+  it('labels each fact so the header reads on paper', () => {
+    const html = body();
+    expect(html).toContain('<b>Podcast</b> The Weekly Signal');
+    expect(html).toContain('<b>Hosts</b> Duo');
+    expect(html).toContain('<b>Tone</b> Educational');
+    expect(html).toContain('<b>Runtime</b> 20 mins');
+  });
+
+  it('uses the outline it is given, so edits are what gets printed', () => {
+    const edited = { ...fullOutline(), episode_title: 'Edited Title', segments: fullOutline().segments.map((seg) => ({ ...seg, title: `${seg.title} (edited)` })) };
+    const html = printableBody(edited, meta, {});
+    expect(html).toContain('Edited Title');
+    expect(html).toContain('First part (edited)');
+    expect(html).not.toContain('The Full Script');
+  });
+
+  it('escapes research notes and every other value', () => {
+    const html = body({ researchNotes: research });
+    expect(html).toContain('Second &lt;b&gt;paragraph&lt;/b&gt;.');
+    expect(html).not.toContain('<b>paragraph</b>');
+  });
+
+  it('shows speaker turns of a duo intro on separate labelled lines', () => {
+    expect(body()).toContain('<span class="speaker">Host 2</span> Glad to be here.');
+  });
+});
+
+describe('print body: sections that are off or empty are omitted cleanly', () => {
+  it('omits guest questions when there are none, or when switched off', () => {
+    expect(printableBody({ ...fullOutline(), guest_questions: [] }, meta, {})).not.toContain('Guest Questions');
+    expect(body({ includeGuestQuestions: false })).not.toContain('Guest Questions');
+    expect(body({ includeGuestQuestions: true })).toContain('Guest Questions');
+    expect(body()).toContain('Guest Questions'); // on by default
+  });
+
+  it('ignores blank guest questions and blank talking points', () => {
+    const html = printableBody({ ...fullOutline(), guest_questions: ['', '  '], segments: [{ ...fullOutline().segments[0], talking_points: ['', 'Only real point'] }, fullOutline().segments[1]] }, meta, {});
+    expect(html).not.toContain('Guest Questions');
+    expect(html).toContain('Only real point');
+    expect(html).not.toContain('<li></li>');
+  });
+
+  it('omits the intro and outro blocks when empty', () => {
+    const html = printableBody({ ...fullOutline(), intro: '  ', outro: '' }, meta, {});
+    expect(html).not.toContain('Opening hook and introduction');
+    expect(html).not.toContain('Outro and call to action');
+  });
+
+  it('omits research notes and sources unless asked for and available', () => {
+    expect(body()).not.toContain('Research notes');
+    expect(body()).not.toContain('Sources');
+    expect(body({ includeSources: true })).toContain('Sources');
+    expect(body({ includeSources: true })).not.toContain('Research notes');
+    expect(body({ researchNotes: research })).toContain('Research notes');
+    expect(body({ researchNotes: research })).not.toContain('Sources');
+    expect(body({ researchNotes: { 1: { notes: '', discussion_prompts: [] } } })).not.toContain('Research notes');
+  });
+
+  it('leaves out the podcast and host facts when they are not set', () => {
+    const html = printableBody(fullOutline(), {}, {});
+    expect(html).not.toContain('<b>Podcast</b>');
+    expect(html).not.toContain('<b>Hosts</b>');
+    expect(html).toContain('<b>Tone</b>');
+  });
+});
+
+describe('print styles', () => {
+  it('hide the app and every control when printing, and print black on white', () => {
+    const print = PRINT_STYLES.slice(PRINT_STYLES.indexOf('@media print'));
+    expect(print).toMatch(/#root[^}]*display: none/);
+    expect(print).toMatch(/\.no-print[^}]*display: none/);
+    expect(print).toMatch(/\.script \*[^}]*color: #000 !important/);
+    expect(print).toMatch(/background: transparent !important/);
+    expect(print).toMatch(/box-shadow: none !important/);
+  });
+
+  it('set page margins, keep sections together, keep headings with their content, and wrap long text', () => {
+    expect(PRINT_STYLES).toMatch(/@page \{[^}]*margin: 18mm/);
+    expect(PRINT_STYLES).toMatch(/\.script \.row \{[^}]*break-inside: avoid/);
+    expect(PRINT_STYLES).toMatch(/\.script h2 \{[^}]*break-after: avoid/);
+    expect(PRINT_STYLES).toMatch(/overflow-wrap: anywhere/);
+    expect(PRINT_STYLES).toContain('counter(page)');
+  });
+
+  it('bring back list bullets and numbers that the app-wide CSS reset removes', () => {
+    expect(PRINT_STYLES).toMatch(/\.script ul \{[^}]*list-style: disc/);
+    expect(PRINT_STYLES).toMatch(/\.script ol \{[^}]*list-style: decimal/);
+  });
+
+  it('let the in-app preview flow across pages instead of clipping to one fixed screen', () => {
+    expect(PRINT_STYLES).toMatch(/\.print-root \{[^}]*position: static !important/);
   });
 });

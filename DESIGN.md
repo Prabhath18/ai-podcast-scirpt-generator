@@ -129,7 +129,13 @@ Motion is 150 to 200 ms with ease-out and used for orientation only: toasts rise
 
 ## Printable script
 
-The print view (Download Script, then Print or save as PDF) is laid out as a production script: a title block with podcast name, hosts, tone and runtime; then one row per part with a timing column (`00:00 to 06:00`, `6 mins`) beside the content. Segments, the intro, the outro and guest questions are set to avoid splitting across a page (`break-inside: avoid`), headings are set to stay with what follows them, and speaker turns in duo and group scripts are set in a hanging indent. The file is standalone HTML with a print button that hides itself when printing.
+**Export Script** is a modal: three rows (PDF / Print, Markdown, Plain text) with one action each, print-only options (guest questions, Deep Dive notes) tucked under the PDF row and shown only when they apply, and one shared "Include a Sources section" checkbox at the bottom.
+
+**PDF / Print** opens the Print Preview: a full-screen layer with a slim toolbar (Close preview on the left, the accent **Print / Save as PDF** button on the right, a one-line hint about choosing Save as PDF) above a white A4-proportioned sheet on a gray desk. The sheet is always light, whatever the app theme.
+
+The script is laid out as a production script: a title block with the podcast, hosts, tone and runtime as labelled facts; then one row per part with a timing column on the left (`00:00`, `to 06:00`, `6 mins`) beside the content. Segments, the intro, the outro and guest questions are set to avoid splitting across a page (`break-inside: avoid`), headings stay with what follows them, orphans and widows are held at 2 to 3 lines, long text wraps (`overflow-wrap: anywhere`), and speaker turns in duo and group scripts use a hanging indent. Pages are A4 with 16 to 18 mm margins and a page number in the corner where the browser supports margin boxes.
+
+For print, a `@media print` block hides the app (`#root`) and the toolbar, makes the preview flow instead of sitting in a fixed screen, and forces every element to black text on a transparent background with no shadow. The app's CSS reset removes list markers, so the script restores bullets and numbers explicitly. Source URLs are printed as text, since a link cannot be clicked on paper.
 
 ## Landing page
 

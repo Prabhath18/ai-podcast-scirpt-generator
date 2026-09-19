@@ -4,7 +4,7 @@ import Header from '../components/Header.jsx';
 import OutlineDocument from '../components/OutlineDocument.jsx';
 import SidePanel, { PanelSheet } from '../components/SidePanel.jsx';
 import CommentsPanel from '../components/CommentsPanel.jsx';
-import ExportMenu from '../components/ExportMenu.jsx';
+import ExportScript from '../components/ExportScript.jsx';
 import AuthModal from '../components/AuthModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { OutlineSkeleton } from '../components/Skeletons.jsx';
@@ -148,7 +148,7 @@ export default function SharedPage() {
           <div className="grid grid-cols-1 gap-x-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="min-w-0 max-w-[46rem]">
               <div className="mb-4 flex justify-end">
-                <ExportMenu outline={outline} meta={{}} />
+                <ExportScript outline={outline} meta={{}} />
               </div>
               <OutlineDocument
                 workspace={workspace}

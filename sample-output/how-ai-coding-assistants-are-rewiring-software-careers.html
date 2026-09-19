@@ -6,46 +6,59 @@
 <title>How AI Coding Assistants Are Rewiring Software Careers</title>
 <style>
   @page { size: A4; margin: 18mm 16mm 20mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; color: #1f2937; background: #fff; font: 11pt/1.5 Newsreader, Georgia, 'Times New Roman', serif; }
-  .mono, .time, .kicker, .speaker, .no-print { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
-  .sheet { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
-  .no-print { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
-  .no-print button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
-  .title-block { border-bottom: 2px solid #1f2937; padding-bottom: 10pt; margin-bottom: 14pt; }
-  .kicker { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
-  h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
-  .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
-  .facts b { font-weight: 600; color: #1f2937; }
-  .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
-  .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #e5e7eb; break-inside: avoid; page-break-inside: avoid; }
-  .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
-  .time strong { display: block; color: #1f2937; font-weight: 600; }
-  h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; }
-  h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
-  .label { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; }
-  p { margin: 0 0 5pt; }
-  .turn { padding-left: 14mm; text-indent: -14mm; }
-  .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
-  ul, ol { margin: 0 0 5pt; padding-left: 16pt; }
-  li { margin-bottom: 2pt; }
-  .transition { font-style: italic; color: #374151; }
-  .sources { margin-top: 6pt; font-size: 9.5pt; }
-  .sources a { color: #1f2937; }
-  .sources .note { color: #4b5563; font-style: italic; }
-  @media print { .no-print { display: none; } .sheet { padding: 0; max-width: none; } }
+  @page { @bottom-right { content: counter(page); font: 8pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #000; } }
+  .script, .script * { box-sizing: border-box; }
+  .script { margin: 0; color: #111827; background: #fff; overflow-wrap: anywhere; font: 11pt/1.55 Newsreader, Georgia, 'Times New Roman', serif; }
+  .script .mono, .script .time, .script .label, .script .speaker, .script .facts, .script .url, .script .doc-toolbar { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+  .script .page { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
+  .script .doc-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
+  .script .doc-toolbar button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
+  .script .title-block { border-bottom: 2px solid #111827; padding-bottom: 10pt; margin-bottom: 14pt; break-after: avoid; page-break-after: avoid; }
+  .script .kicker { font: 8.5pt 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
+  .script h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
+  .script .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
+  .script .facts b { font-weight: 600; color: #111827; }
+  .script .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
+  .script .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #d1d5db; break-inside: avoid; page-break-inside: avoid; }
+  .script .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
+  .script .time strong { display: block; color: #111827; font-weight: 600; }
+  .script h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; page-break-after: avoid; }
+  .script h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
+  .script .label { font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; break-after: avoid; }
+  .script p { margin: 0 0 5pt; orphans: 3; widows: 3; }
+  .script .turn { padding-left: 14mm; text-indent: -14mm; }
+  .script .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
+  /* The app's CSS reset removes list markers; the script must put them back. */
+  .script ul, .script ol { margin: 0 0 5pt; padding-left: 16pt; }
+  .script ul { list-style: disc outside; }
+  .script ol { list-style: decimal outside; }
+  .script li { margin-bottom: 2pt; orphans: 2; widows: 2; }
+  .script .transition { font-style: italic; color: #374151; }
+  .script .notes, .script .sources { margin-top: 7pt; padding-top: 5pt; border-top: 0.5pt solid #d1d5db; font-size: 10pt; }
+  .script .sources a { color: #111827; }
+  .script .sources .note { color: #4b5563; font-style: italic; }
+  .script .url { display: block; font-size: 7.5pt; color: #4b5563; }
+  @media print {
+    html, body { background: #fff !important; }
+    #root, .no-print, .script .doc-toolbar { display: none !important; }
+    .print-root { position: static !important; inset: auto !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+    .script .page { max-width: none; padding: 0; border: 0; box-shadow: none; }
+    .script, .script * { color: #000 !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+    .script a { text-decoration: none; }
+  }
 </style>
 </head>
 <body>
-  <div class="no-print"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
-  <main class="sheet">
+  <div class="script">
+    <div class="doc-toolbar"><span>Production script preview</span><button type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <div class="page">
     <header class="title-block">
-      <p class="kicker">Episode script</p>
+      <p class="kicker">Production script</p>
       <h1>How AI Coding Assistants Are Rewiring Software Careers</h1>
       <p class="facts"><span><b>Tone</b> Educational</span><span><b>Runtime</b> 45 mins</span></p>
       <p class="teaser">AI writes the first draft now. What is left for you?</p>
     </header>
-    <section class="row"><div class="time"><strong>Open</strong></div><div><h2>Intro</h2><p>Six months ago, writing a function meant typing every line yourself. Today, a growing share of developers describe their code as co-written with an AI. In the next 45 minutes, we&#39;re breaking down how these tools actually work, where they help, where they quietly hurt you, and what it means for anyone building a career in software right now.</p></div></section>
+    <section class="row"><div class="time"><strong>Open</strong></div><div><h2>Opening hook and introduction</h2><p>Six months ago, writing a function meant typing every line yourself. Today, a growing share of developers describe their code as co-written with an AI. In the next 45 minutes, we&#39;re breaking down how these tools actually work, where they help, where they quietly hurt you, and what it means for anyone building a career in software right now.</p></div></section>
     
   <section class="row">
     <div class="time"><strong>00:00</strong>to 06:00<br />6 mins</div>
@@ -53,6 +66,7 @@
       <h2><span class="num">01</span>From Autocomplete to Autonomous Agents</h2>
       <ul><li>Trace the lineage: basic autocomplete, GitHub Copilot in 2021, chat-based assistants, and now agentic tools that can open files, run commands, and iterate on their own</li><li>Explain the core technique -- large language models trained on public code plus reinforcement learning from human coder feedback</li><li>Contrast &#39;suggests the next line&#39; tools with &#39;plans and executes a multi-file change&#39; tools, since listeners often conflate the two</li><li>Note the speed of the shift: three product categories emerged in under four years</li></ul>
       <p class="transition">Transition: That history explains what these tools ARE. Now let&#39;s talk about what they&#39;re actually good at.</p>
+      
       
     </div>
   </section>
@@ -64,6 +78,7 @@
       <ul><li>Boilerplate and glue code: API clients, config files, test scaffolding -- the tedious 20% that rarely needs creativity</li><li>Reading unfamiliar codebases faster by asking the assistant to summarize a module before diving in</li><li>Turning a vague bug report into a first hypothesis by pointing the assistant at the stack trace</li><li>Translating between languages or frameworks, e.g. porting a Python script to TypeScript</li></ul>
       <p class="transition">Transition: Those are real wins. But there&#39;s a flip side that doesn&#39;t get talked about enough.</p>
       
+      
     </div>
   </section>
 
@@ -73,6 +88,7 @@
       <h2><span class="num">03</span>The Hidden Costs: Skill Atrophy and Silent Bugs</h2>
       <ul><li>Junior developers who lean on AI for logic they don&#39;t understand yet, and what that does to debugging skills a year later</li><li>Confidently wrong code: assistants that produce plausible-looking but subtly incorrect logic, especially around edge cases and concurrency</li><li>Security concerns -- models trained on public repos can reproduce insecure patterns (hardcoded secrets, SQL injection-prone queries)</li><li>The &#39;review fatigue&#39; problem: when 80% of a PR is AI-generated, human reviewers start rubber-stamping</li></ul>
       <p class="transition">Transition: So how should a working developer actually use these tools without falling into those traps?</p>
+      
       
     </div>
   </section>
@@ -84,6 +100,7 @@
       <ul><li>Rule of thumb: use AI to go from zero to a draft, never to skip understanding the draft you ship</li><li>Always ask the assistant to explain its own reasoning before accepting a nontrivial change</li><li>Treat AI-generated tests with suspicion -- verify they actually fail before the fix and pass after</li><li>Keep a personal list of mistakes the assistant has made for you, and re-check for those patterns specifically</li></ul>
       <p class="transition">Transition: That&#39;s the individual-developer view. Zoom out, and this is reshaping entire teams and hiring pipelines.</p>
       
+      
     </div>
   </section>
 
@@ -93,6 +110,7 @@
       <h2><span class="num">05</span>What This Means for Hiring and Team Structure</h2>
       <ul><li>Interview formats shifting away from pure algorithm puzzles toward code review and debugging exercises</li><li>Smaller teams shipping more -- what a 4-person startup can now build that used to need 12 people</li><li>The growing premium on system design and architecture skills, since AI is weaker at whole-system tradeoffs than at local code</li><li>Early evidence on junior hiring: some companies hiring fewer juniors, others betting junior-plus-AI is a training accelerator</li></ul>
       <p class="transition">Transition: Let&#39;s bring this back to something concrete: what should a developer listening right now actually do this month?</p>
+      
       
     </div>
   </section>
@@ -104,10 +122,12 @@
       <ul><li>Double down on the things AI is still bad at: system design, cross-team communication, judgment calls under ambiguity</li><li>Practice writing precise, specific prompts as a skill in itself -- vague prompts produce vague code</li><li>Keep at least one project where you deliberately code without assistance, to keep your unaided skills sharp</li><li>Where to start experimenting this week without a big commitment</li></ul>
       <p class="transition">Transition: Let&#39;s wrap up with the big picture.</p>
       
+      
     </div>
   </section>
     <section class="row"><div class="time"><strong>Guest</strong></div><div><h2>Guest Questions</h2><ol><li>You shipped one of the first AI coding assistants used at scale -- what surprised you most about how developers actually used it, versus how you expected them to?</li><li>What is the single most common mistake you see developers make when they start relying on AI assistants?</li><li>Do you think today&#39;s junior developers are learning differently -- worse, better, or just different -- than developers did ten years ago?</li><li>Where does the current generation of AI coding tools completely fall apart?</li><li>If you were mentoring a junior developer today, what would you tell them to deliberately practice without AI help?</li><li>Five years from now, what&#39;s one part of the software job that you&#39;re confident AI still won&#39;t touch?</li></ol></div></section>
-    <section class="row"><div class="time"><strong>Close</strong></div><div><h2>Outro</h2><p>That&#39;s a wrap on how AI coding assistants are reshaping the way we build software. If one thing stuck with you today, let it be this: these tools are extraordinary at generating code, but understanding what that code does is still entirely on you. Subscribe if you want more episodes untangling how AI is changing technical careers, and send us the tool you can&#39;t stop arguing about with your team.</p></div></section>
-  </main>
+    <section class="row"><div class="time"><strong>Close</strong></div><div><h2>Outro and call to action</h2><p>That&#39;s a wrap on how AI coding assistants are reshaping the way we build software. If one thing stuck with you today, let it be this: these tools are extraordinary at generating code, but understanding what that code does is still entirely on you. Subscribe if you want more episodes untangling how AI is changing technical careers, and send us the tool you can&#39;t stop arguing about with your team.</p></div></section>
+  </div>
+  </div>
 </body>
 </html>

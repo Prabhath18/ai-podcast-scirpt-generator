@@ -1,19 +1,22 @@
 // Wraps the raw `generate()` call with the three things every structured
-// LLM call in this app needs: strip markdown code fences some models wrap
-// JSON in, parse it, and validate it against a caller-supplied validator --
-// retrying exactly once, with the validation errors fed back to the model,
-// before giving up. This is the only place that retry policy lives.
+// LLM call in this app needs: pull the JSON object out of whatever the model
+// wrapped it in (code fences, prose, <think> blocks), parse it, and validate it
+// against a caller-supplied validator -- retrying exactly once, with the
+// validation errors fed back to the model, before giving up. This is the only
+// place that retry policy lives, and it is the same for every provider.
 import { generate } from './llm.js';
+import { extractJson } from '../utils/extractJson.js';
 
-function stripCodeFences(text) {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
-}
+// Failures that asking the model again cannot fix, and that would only repeat the wait
+// or the error: a bad setup, a timeout (another 90 s), a rate limit, rejected credentials.
+const NO_RETRY_CODES = new Set(['LLM_NOT_CONFIGURED', 'LLM_TIMEOUT', 'LLM_RATE_LIMITED', 'LLM_AUTH']);
+// Provider failures keep their own code in the final error so the client can say what
+// happened. Everything else still ends as LLM_INVALID_RESPONSE, as it always has.
+const PROVIDER_CODES = new Set([...NO_RETRY_CODES, 'LLM_PROVIDER_ERROR']);
 
 /**
  * @param {string} prompt
- * @param {object} schema Gemini response schema (JSON mode).
+ * @param {object} schema Response schema (Gemini dialect; see services/llm.js).
  * @param {(data: unknown) => { valid: boolean, errors: unknown[], value?: object, salvage?: object }} validate
  *   A validator may return `value`, a cleaned-up payload to hand back instead
  *   of the raw parse, and may attach `salvage`: a usable subset of an
@@ -25,6 +28,7 @@ function stripCodeFences(text) {
 export async function callStructuredLLM(prompt, schema, validate) {
   let lastErrorDetails;
   let lastErrorMessage = 'Unknown error.';
+  let lastErrorCode;
   let salvage = null;
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -38,24 +42,25 @@ export async function callStructuredLLM(prompt, schema, validate) {
     try {
       // eslint-disable-next-line no-await-in-loop -- intentionally sequential retry
       const raw = await generate(attemptPrompt, schema);
-      const cleaned = stripCodeFences(raw);
-      const data = JSON.parse(cleaned);
+      const data = JSON.parse(extractJson(raw));
       const result = validate(data);
       if (result.valid) return result.value ?? data;
       if (result.salvage) salvage = result.salvage;
       lastErrorDetails = result.errors;
       lastErrorMessage = 'The AI response did not satisfy the required schema.';
+      lastErrorCode = undefined;
     } catch (err) {
-      if (err.code === 'LLM_NOT_CONFIGURED') throw err;
+      if (NO_RETRY_CODES.has(err.code)) throw err;
       lastErrorDetails = [{ field: 'response', message: err.message }];
       lastErrorMessage = err instanceof SyntaxError ? 'The AI response was not valid JSON.' : err.message;
+      lastErrorCode = err.code;
     }
   }
 
   if (salvage) return salvage;
 
   const error = new Error(`${lastErrorMessage} (after one retry)`);
-  error.code = 'LLM_INVALID_RESPONSE';
+  error.code = PROVIDER_CODES.has(lastErrorCode) ? lastErrorCode : 'LLM_INVALID_RESPONSE';
   error.details = lastErrorDetails;
   throw error;
 }

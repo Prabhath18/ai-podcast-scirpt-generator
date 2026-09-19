@@ -94,6 +94,17 @@ const SCREENS = {
     await page.getByRole('button', { name: 'My episodes' }).click();
     await page.getByText('No episodes drafted yet').waitFor();
   },
+  exportdialog: async (page) => {
+    await SCREENS.outline(page);
+    await page.getByRole('button', { name: 'Export Script' }).click();
+    await page.getByRole('dialog', { name: 'Export Script' }).waitFor();
+  },
+  printpreview: async (page) => {
+    await SCREENS.outline(page);
+    await page.getByRole('button', { name: 'Export Script' }).click();
+    await page.getByRole('button', { name: 'Open Print Preview' }).click();
+    await page.getByRole('dialog', { name: 'Print preview' }).waitFor();
+  },
   shortcuts: async (page) => {
     await SCREENS.outline(page);
     await page.keyboard.press('?');
@@ -147,6 +158,8 @@ if (mode === 'docs') {
   await shoot(browser, { screen: 'comments', size: 'desktop', theme: 'dark', file: path.join(out, 'comments-dark-desktop.png') });
   await shoot(browser, { screen: 'intro', size: 'desktop', theme: 'light', file: path.join(out, 'intro-outro-light-desktop.png') });
   await shoot(browser, { screen: 'brief', size: 'desktop', theme: 'light', file: path.join(out, 'brief-light-desktop.png') });
+  await shoot(browser, { screen: 'exportdialog', size: 'desktop', theme: 'dark', file: path.join(out, 'export-script-dark-desktop.png') });
+  await shoot(browser, { screen: 'printpreview', size: 'desktop', theme: 'light', file: path.join(out, 'print-preview-light-desktop.png') });
   await shoot(browser, { screen: 'progress', size: 'desktop', theme: 'light', file: path.join(out, 'generating-light-desktop.png') });
   await shoot(browser, { screen: 'error', size: 'desktop', theme: 'light', file: path.join(out, 'generation-error-light-desktop.png') });
   await shoot(browser, { screen: 'episodes', size: 'desktop', theme: 'light', file: path.join(out, 'my-episodes-empty-light-desktop.png') });

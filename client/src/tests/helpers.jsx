@@ -28,6 +28,9 @@ export const OUTLINE = {
 /** A saved draft: the tech demo loaded into the workspace, as it would sit in localStorage. */
 export const draftJson = () => JSON.stringify(reducer(EMPTY_STATE, { type: 'LOAD_DEMO', id: 'tech' }));
 
+/** A generate-outline step that succeeds with a specific outline. */
+export const respondWith = (outline) => () => reply(201, { outline });
+
 export const failWith = (status, code, error = 'Something failed.') => () => reply(status, { error, code });
 
 const reply = (status, body) =>

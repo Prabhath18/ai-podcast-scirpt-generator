@@ -23,9 +23,15 @@ const db = createDb(path.resolve(__dirname, databasePath));
 
 // eslint-disable-next-line no-console
 console.log(`[db] Using SQLite database at: ${path.resolve(__dirname, databasePath)}`);
-if (!process.env.GEMINI_API_KEY) {
+const { describeLlmConfig } = await import('./services/llm.js');
+const llm = describeLlmConfig();
+if (llm.primary) {
   // eslint-disable-next-line no-console
-  console.warn('[warn] GEMINI_API_KEY is not set -- live outline generation will fail. Use "Try a demo" in the app, or set the key in .env.');
+  console.log(`[llm] Provider: ${llm.primary} (${llm.model})${llm.fallback ? `, falling back to ${llm.fallback}` : ''}`);
+}
+for (const problem of llm.problems) {
+  // eslint-disable-next-line no-console
+  console.warn(`[warn] ${problem} Live generation will fail until this is fixed. Use "Try a demo" in the app, or set it in .env.`);
 }
 
 const app = createApp(db);
