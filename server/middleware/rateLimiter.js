@@ -46,3 +46,25 @@ export const authLimiter = rateLimit({
   skip: skipInTests,
   handler: jsonRateLimitHandler,
 });
+
+// Research proxies to Wikipedia/NewsAPI, which are cheap but not free of
+// limits (NewsAPI's free tier is tiny), so it gets its own ceiling.
+export const researchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTests,
+  handler: jsonRateLimitHandler,
+});
+
+// Posting comments is the only write a non-owner can make, so it is capped
+// tighter than general traffic to blunt spam on a public share link.
+export const commentWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTests,
+  handler: jsonRateLimitHandler,
+});

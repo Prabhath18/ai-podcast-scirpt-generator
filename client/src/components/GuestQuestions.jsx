@@ -1,11 +1,10 @@
-import { Plus, Trash2, RefreshCw, Users } from 'lucide-react';
-import { inputClasses } from './FormField.jsx';
+import EditableText from './EditableText.jsx';
 import Spinner from './Spinner.jsx';
 import { useAsyncCallback } from '../hooks/useAsyncCallback.js';
 import { useToast } from '../hooks/useToast.jsx';
 import { api, ApiError } from '../services/api.js';
 
-export default function GuestQuestions({ workspace, isReadOnly }) {
+export default function GuestQuestions({ workspace, readOnly }) {
   const { form, outline, updateGuestQuestion, addGuestQuestion, removeGuestQuestion, setGuestQuestions } = workspace;
   const toast = useToast();
 
@@ -27,74 +26,62 @@ export default function GuestQuestions({ workspace, isReadOnly }) {
       await runRegenerate();
       toast.success('Guest questions refreshed.');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Could not regenerate guest questions.');
+      toast.error(err instanceof ApiError ? err.message : 'Could not refresh the guest questions.', {
+        action: { label: 'Try again', onClick: handleRegenerate },
+      });
     }
   };
 
+  const questions = outline.guest_questions;
+  if (readOnly && questions.length === 0) return null;
+
   return (
-    <section className="rounded-2xl border border-border bg-surface-raised shadow-card p-5">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="flex items-center gap-2 font-semibold text-ink">
-          <Users className="w-4 h-4 text-accent" aria-hidden="true" />
-          Guest Questions
-        </h2>
-        {!isReadOnly && (
-          <button
-            type="button"
-            onClick={handleRegenerate}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink disabled:opacity-50 transition-colors"
-          >
-            {loading ? <Spinner className="w-3.5 h-3.5" label="Regenerating" /> : <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />}
-            Regenerate
+    <section aria-labelledby="guest-heading" className="grid grid-cols-[2.25rem_1fr] gap-x-3 border-t border-line px-2 py-5 sm:grid-cols-[3.25rem_1fr] sm:px-3">
+      <p className="label pt-2" aria-hidden="true">Guest</p>
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="guest-heading" className="font-serif text-lg font-semibold">Guest questions</h2>
+          {!readOnly && (
+            <button type="button" className="link-action inline-flex items-center gap-1.5" onClick={handleRegenerate} disabled={loading}>
+              {loading && <Spinner className="h-3 w-3" label="Refreshing" />}
+              Regenerate
+            </button>
+          )}
+        </div>
+
+        {questions.length === 0 ? (
+          <p className="mt-2 max-w-measure text-sm text-ink-muted">
+            No questions yet. Add your own below, or switch on “This episode has a guest” in the brief and regenerate.
+          </p>
+        ) : (
+          <ol className="mt-3 space-y-1.5">
+            {questions.map((question, i) => (
+              <li key={i} className="group/point flex items-start gap-2.5">
+                <span className="tabular w-5 shrink-0 pt-[0.15rem] text-right font-mono text-sm text-ink-faint">{i + 1}.</span>
+                <div className="max-w-measure flex-1 text-base">
+                  <EditableText multiline value={question} label={`guest question ${i + 1}`} readOnly={readOnly} placeholder="Write a question" onCommit={(value) => updateGuestQuestion(i, value)} />
+                </div>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => removeGuestQuestion(i)}
+                    aria-label={`Remove guest question ${i + 1}`}
+                    className="btn btn-quiet h-6 w-6 px-0 text-base leading-none text-ink-faint opacity-0 focus-visible:opacity-100 group-hover/point:opacity-100 [@media(hover:none)]:opacity-100"
+                  >
+                    &times;
+                  </button>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {!readOnly && (
+          <button type="button" onClick={addGuestQuestion} className="link-action mt-2">
+            Add a question
           </button>
         )}
       </div>
-
-      {outline.guest_questions.length === 0 ? (
-        <p className="text-sm text-ink-muted mb-3">
-          {isReadOnly ? 'No guest questions for this episode.' : 'No guest questions yet. Add one below, or turn on “Include a guest interview” and regenerate the outline.'}
-        </p>
-      ) : isReadOnly ? (
-        <ol className="space-y-2 mb-1 list-decimal list-inside text-sm text-ink">
-          {outline.guest_questions.map((q, i) => (
-            <li key={i}>{q}</li>
-          ))}
-        </ol>
-      ) : (
-        <ol className="space-y-2 mb-3 list-decimal list-inside">
-          {outline.guest_questions.map((q, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => updateGuestQuestion(i, e.target.value)}
-                aria-label={`Guest question ${i + 1}`}
-                className={`${inputClasses} py-1.5`}
-              />
-              <button
-                type="button"
-                onClick={() => removeGuestQuestion(i)}
-                aria-label={`Remove guest question ${i + 1}`}
-                className="p-1.5 rounded-md text-ink-faint hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {!isReadOnly && (
-        <button
-          type="button"
-          onClick={addGuestQuestion}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink"
-        >
-          <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-          Add question
-        </button>
-      )}
     </section>
   );
 }

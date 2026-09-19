@@ -1,45 +1,43 @@
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useToastList } from '../hooks/useToast.jsx';
 
-const ICONS = { success: CheckCircle2, error: XCircle, info: Info };
-const COLORS = {
-  success: 'text-emerald-600 dark:text-emerald-400',
-  error: 'text-red-600 dark:text-red-400',
-  info: 'text-accent',
-};
+// A 3px bar in the semantic color carries the type; the text stays neutral.
+const BAR = { success: 'bg-ok', error: 'bg-danger', warn: 'bg-warn', info: 'bg-line-strong' };
 
 export default function ToastViewport() {
   const { toasts, dismiss } = useToastList();
 
-  if (toasts.length === 0) return null;
-
   return (
     <div
-      className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 w-[calc(100vw-2rem)] max-w-sm"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col gap-2 p-4 sm:inset-x-auto sm:left-4 sm:max-w-sm"
       aria-live="polite"
-      aria-atomic="true"
+      aria-atomic="false"
     >
-      {toasts.map((t) => {
-        const Icon = ICONS[t.type] || Info;
-        return (
-          <div
-            key={t.id}
-            role="status"
-            className="flex items-start gap-3 rounded-xl border border-border bg-surface-raised shadow-popover p-3.5 animate-slide-in-right"
-          >
-            <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${COLORS[t.type] || COLORS.info}`} aria-hidden="true" />
-            <p className="text-sm text-ink flex-1">{t.message}</p>
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          role="status"
+          className="pointer-events-auto flex animate-rise-in items-stretch overflow-hidden rounded-lg border border-line-strong bg-page shadow-float"
+        >
+          <span className={`w-[3px] shrink-0 ${BAR[t.type] || BAR.info}`} aria-hidden="true" />
+          <p className="flex-1 px-3 py-2.5 text-sm text-ink">{t.message}</p>
+          {t.action && (
             <button
               type="button"
-              onClick={() => dismiss(t.id)}
-              aria-label="Dismiss notification"
-              className="text-ink-faint hover:text-ink-muted"
+              onClick={() => {
+                t.action.onClick();
+                dismiss(t.id);
+              }}
+              className="px-3 text-sm font-semibold text-accent hover:underline"
             >
-              <X className="w-4 h-4" aria-hidden="true" />
+              {t.action.label}
             </button>
-          </div>
-        );
-      })}
+          )}
+          <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss notification" className="px-2.5 text-ink-faint hover:text-ink">
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

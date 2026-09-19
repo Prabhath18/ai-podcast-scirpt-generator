@@ -1,12 +1,11 @@
 import { TONES } from '../hooks/constants.js';
-import { inputClasses } from './FormField.jsx';
 
 export default function ToneSelector({ value, customValue, onChange, onCustomChange }) {
   const options = [...TONES, 'Other'];
 
   return (
     <div>
-      <div role="radiogroup" aria-label="Tone" className="flex flex-wrap gap-2">
+      <div role="radiogroup" aria-label="Tone" className="flex flex-wrap gap-1.5">
         {options.map((tone) => {
           const selected = value === tone;
           return (
@@ -16,10 +15,10 @@ export default function ToneSelector({ value, customValue, onChange, onCustomCha
               role="radio"
               aria-checked={selected}
               onClick={() => onChange(tone)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              className={`rounded border px-2.5 py-1 text-sm transition-colors duration-150 ${
                 selected
-                  ? 'bg-accent text-white border-accent'
-                  : 'bg-surface text-ink-muted border-border hover:text-ink hover:border-ink-faint'
+                  ? 'border-accent bg-accent-tint font-medium text-ink'
+                  : 'border-line-strong bg-page text-ink-muted hover:border-ink-faint hover:text-ink'
               }`}
             >
               {tone}
@@ -34,7 +33,7 @@ export default function ToneSelector({ value, customValue, onChange, onCustomCha
           onChange={(e) => onCustomChange(e.target.value)}
           placeholder='Describe the tone, e.g. "dry and skeptical"'
           maxLength={60}
-          className={`${inputClasses} mt-2`}
+          className="field mt-2"
           aria-label="Custom tone description"
         />
       )}

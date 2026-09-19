@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth.js';
 import { projectsRouter } from './routes/projects.js';
 import { sharedRouter } from './routes/shared.js';
 import { outlineRouter } from './routes/outline.js';
+import { researchRouter } from './routes/research.js';
 import { generalLimiter, authLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -34,7 +35,8 @@ export function createApp(db) {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '100kb' }));
+  // 300kb leaves room for an outline plus up to three stored variations.
+  app.use(express.json({ limit: '300kb' }));
   app.use(cookieParser());
   app.use(generalLimiter);
 
@@ -43,6 +45,7 @@ export function createApp(db) {
   app.use('/api/auth', authLimiter, authRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/shared', sharedRouter);
+  app.use('/api/research', researchRouter);
   app.use('/api', outlineRouter);
 
   app.use('/api', notFoundHandler);

@@ -1,9 +1,11 @@
 // Bundled sample outlines so the app is fully explorable with zero setup
 // and no GEMINI_API_KEY -- "Try a demo" loads one of these directly into
 // app state instead of calling the backend. The same three outlines are
-// exported as scripts under sample-output/ (see scripts/buildSampleOutput.js).
+// exported as scripts under sample-output/ (see scripts/buildSampleOutput.mjs).
+// Offline sample variations, sources, hooks and comments live in demoExtras.js.
+import { demoExtras } from './demoExtras.js';
 
-export const demoOutlines = [
+const baseDemos = [
   {
     id: 'tech',
     label: 'Tech: AI Coding Assistants',
@@ -277,6 +279,46 @@ export const demoOutlines = [
   },
 ];
 
-export function getDemoOutline(id) {
-  return demoOutlines.find((demo) => demo.id === id) ?? demoOutlines[0];
+/** Adds each demo's alternative outlines, pinned sources and intro/outro set to its base outline. */
+function withExtras(demo) {
+  const extras = demoExtras[demo.id];
+  const segments = demo.outline.segments.map((segment) => {
+    const pinned = (extras.pins[segment.id] || []).map((index) => extras.research[segment.id][index]);
+    return pinned.length ? { ...segment, sources: pinned } : segment;
+  });
+  const variations = extras.variations.map(({ approach, rationale, title, intro, segments: variationSegments, outro }) => ({
+    approach,
+    rationale,
+    outline: {
+      episode_title: title,
+      tone: demo.outline.tone,
+      total_duration_mins: demo.outline.total_duration_mins,
+      intro,
+      segments: variationSegments,
+      guest_questions: demo.outline.guest_questions,
+      outro,
+    },
+  }));
+  return { ...demo, outline: { ...demo.outline, segments, variations, intro_outro: extras.introOutro } };
+}
+
+export const demoOutlines = baseDemos.map(withExtras);
+
+/** Offline research suggestions for the Research panel: one list per segment, plus "topic". */
+export function getDemoResearch(id, segmentId) {
+  const research = demoExtras[id]?.research;
+  return research?.[segmentId ?? 'topic'] ?? research?.topic ?? [];
+}
+
+/** A fresh copy of a demo, with its sample comments stamped relative to now so they read "2 h ago". */
+export function getDemo(id) {
+  const demo = structuredClone(demoOutlines.find((d) => d.id === id) ?? demoOutlines[0]);
+  const comments = demoExtras[demo.id].comments.map(({ minutesAgo, author, ...rest }, index) => ({
+    id: `demo-${demo.id}-${index}`,
+    createdAt: new Date(Date.now() - minutesAgo * 60000).toISOString(),
+    author: { name: author },
+    isMine: false,
+    ...rest,
+  }));
+  return { ...demo, comments };
 }

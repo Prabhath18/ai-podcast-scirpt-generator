@@ -9,11 +9,10 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-pressed={isDark}
-      className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-sunken transition-colors"
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      className="btn btn-quiet h-8 w-8 px-0"
     >
-      {isDark ? <Sun className="w-[18px] h-[18px]" aria-hidden="true" /> : <Moon className="w-[18px] h-[18px]" aria-hidden="true" />}
+      {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
     </button>
   );
 }

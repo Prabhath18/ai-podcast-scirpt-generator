@@ -68,6 +68,74 @@ describe('toPrintableHtml', () => {
   });
 });
 
+const withExtras = () => ({
+  ...sampleOutline,
+  intro_outro: { hooks: [], intro_script: '', outros: [], teaser: 'A short teaser.' },
+  segments: [
+    {
+      ...sampleOutline.segments[0],
+      sources: [
+        { type: 'wikipedia', title: 'Jazz <b>', url: 'https://en.wikipedia.org/wiki/Jazz', summary: 'A genre.' },
+        { type: 'news', title: 'Evil link', url: 'javascript:alert(1)', summary: '' },
+      ],
+    },
+    sampleOutline.segments[1],
+  ],
+});
+
+describe('timings in exports', () => {
+  it('adds a running clock to each segment', () => {
+    expect(toMarkdown(sampleOutline)).toContain('*00:00 - 06:00*');
+    expect(toMarkdown(sampleOutline)).toContain('*06:00 - 10:00*');
+    expect(toPlainText(sampleOutline)).toContain('06:00 - 10:00');
+  });
+
+  it('shows the timing column in the printable script', () => {
+    const html = toPrintableHtml(sampleOutline);
+    expect(html).toContain('<strong>06:00</strong>');
+    expect(html).toContain('to 10:00');
+  });
+});
+
+describe('pinned sources in exports', () => {
+  it('leaves sources out unless includeSources is set', () => {
+    expect(toMarkdown(withExtras())).not.toContain('Sources');
+    expect(toPlainText(withExtras())).not.toContain('Sources');
+    expect(toPrintableHtml(withExtras())).not.toContain('Wikipedia/wiki');
+  });
+
+  it('lists them with a verify note when included', () => {
+    const md = toMarkdown(withExtras(), {}, { includeSources: true });
+    expect(md).toContain('**Sources** (verify before citing)');
+    expect(md).toContain('[Jazz <b>](https://en.wikipedia.org/wiki/Jazz)');
+    expect(toPlainText(withExtras(), {}, { includeSources: true })).toContain('Jazz <b>: https://en.wikipedia.org/wiki/Jazz');
+  });
+
+  it('escapes titles and drops non-http links in the printable HTML', () => {
+    const html = toPrintableHtml(withExtras(), {}, { includeSources: true });
+    expect(html).toContain('<a href="https://en.wikipedia.org/wiki/Jazz">Jazz &lt;b&gt;</a>');
+    expect(html).not.toContain('javascript:');
+  });
+});
+
+describe('teaser and speaker turns', () => {
+  it('includes the teaser line when one is set', () => {
+    expect(toMarkdown(withExtras())).toContain('> A short teaser.');
+    expect(toPlainText(withExtras())).toContain('Teaser: A short teaser.');
+    expect(toPrintableHtml(withExtras())).toContain('A short teaser.');
+  });
+
+  it('prints Host N turns of a duo intro as separate labelled lines', () => {
+    const html = toPrintableHtml({ ...sampleOutline, intro: 'Host 1: Hello there.\nHost 2: Hi <all>.' });
+    expect(html).toContain('<span class="speaker">Host 1</span> Hello there.');
+    expect(html).toContain('Hi &lt;all&gt;.');
+  });
+
+  it('keeps each segment together on a page', () => {
+    expect(toPrintableHtml(sampleOutline)).toMatch(/\.row \{[^}]*break-inside: avoid/);
+  });
+});
+
 describe('slugify', () => {
   it('produces a filesystem-safe slug', () => {
     expect(slugify('Test Episode & "Friends"')).toBe('test-episode-friends');

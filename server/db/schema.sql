@@ -1,4 +1,4 @@
--- Schema for the AI Podcast Script and Episode Outline Generator.
+-- Base schema for Podcast Outline AI. Later changes live in db/migrations.js.
 -- Applied idempotently on every server start (see db/init.js).
 
 CREATE TABLE IF NOT EXISTS users (

@@ -14,13 +14,18 @@ function stripCodeFences(text) {
 /**
  * @param {string} prompt
  * @param {object} schema Gemini response schema (JSON mode).
- * @param {(data: unknown) => { valid: boolean, errors: unknown[] }} validate
+ * @param {(data: unknown) => { valid: boolean, errors: unknown[], value?: object, salvage?: object }} validate
+ *   A validator may return `value`, a cleaned-up payload to hand back instead
+ *   of the raw parse, and may attach `salvage`: a usable subset of an
+ *   otherwise invalid response (e.g. the variations that did validate). If the
+ *   retry also fails, the best salvage is returned instead of an error.
  * @returns {Promise<object>} the parsed, validated JSON payload
  * @throws {Error & { code: string, details?: unknown }}
  */
 export async function callStructuredLLM(prompt, schema, validate) {
   let lastErrorDetails;
   let lastErrorMessage = 'Unknown error.';
+  let salvage = null;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const attemptPrompt =
@@ -36,7 +41,8 @@ export async function callStructuredLLM(prompt, schema, validate) {
       const cleaned = stripCodeFences(raw);
       const data = JSON.parse(cleaned);
       const result = validate(data);
-      if (result.valid) return data;
+      if (result.valid) return result.value ?? data;
+      if (result.salvage) salvage = result.salvage;
       lastErrorDetails = result.errors;
       lastErrorMessage = 'The AI response did not satisfy the required schema.';
     } catch (err) {
@@ -45,6 +51,8 @@ export async function callStructuredLLM(prompt, schema, validate) {
       lastErrorMessage = err instanceof SyntaxError ? 'The AI response was not valid JSON.' : err.message;
     }
   }
+
+  if (salvage) return salvage;
 
   const error = new Error(`${lastErrorMessage} (after one retry)`);
   error.code = 'LLM_INVALID_RESPONSE';

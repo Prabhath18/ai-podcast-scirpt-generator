@@ -1,8 +1,8 @@
 {
-  "name": "ai-podcast-generator",
+  "name": "podcast-outline-ai",
   "private": true,
   "version": "1.0.0",
-  "description": "AI Podcast Script and Episode Outline Generator",
+  "description": "Podcast Outline AI: generate, edit and export a podcast episode outline",
   "workspaces": [
     "client",
     "server"
@@ -13,10 +13,14 @@
     "test": "npm run test -w server && npm run test -w client",
     "test:server": "npm run test -w server",
     "test:client": "npm run test -w client",
-    "lint": "npm run lint -w client"
+    "lint": "npm run lint -w client",
+    "check:contrast": "node scripts/checkContrast.mjs",
+    "screenshots": "node scripts/screenshots.mjs docs",
+    "samples": "node scripts/buildSampleOutput.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.0.1"
+    "concurrently": "^9.0.1",
+    "playwright-core": "^1.63.0"
   },
   "engines": {
     "node": ">=18.18.0"

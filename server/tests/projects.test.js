@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createTestApp } from './testDb.js';
-import { sampleOutline } from './fixtures.js';
+import { sampleOutline, sampleVariation } from './fixtures.js';
 
 describe('project ownership', () => {
   let app;
@@ -70,6 +70,49 @@ describe('project ownership', () => {
     const otherList = await otherAgent.get('/api/projects');
     expect(ownerList.body.projects).toHaveLength(1);
     expect(otherList.body.projects).toHaveLength(0);
+  });
+});
+
+describe('optional outline fields', () => {
+  it('round-trips variations, pinned sources and intro_outro through SQLite', async () => {
+    const { app } = createTestApp();
+    const agent = request.agent(app);
+    await agent.post('/api/auth/signup').send({ email: 'fields@example.com', password: 'password123' });
+
+    const outline = sampleOutline({
+      variations: [sampleVariation('A'), sampleVariation('B')],
+      intro_outro: { hooks: [{ style: 'Question', text: 'Ever wonder?' }], intro_script: 'Welcome.', outros: ['Bye.'], teaser: 'Soon.' },
+    });
+    outline.segments[0].sources = [{ type: 'wikipedia', title: 'Jazz', url: 'https://en.wikipedia.org/wiki/Jazz', summary: 'A genre.' }];
+
+    const created = await agent.post('/api/projects').send({ title: 'With extras', outline });
+    expect(created.status).toBe(201);
+
+    const loaded = await agent.get(`/api/projects/${created.body.project.id}`);
+    expect(loaded.body.project.outline.variations).toHaveLength(2);
+    expect(loaded.body.project.outline.segments[0].sources[0].title).toBe('Jazz');
+    expect(loaded.body.project.outline.intro_outro.teaser).toBe('Soon.');
+  });
+
+  it('still saves and loads an outline in the original format, with none of the new fields', async () => {
+    const { app } = createTestApp();
+    const agent = request.agent(app);
+    await agent.post('/api/auth/signup').send({ email: 'legacy@example.com', password: 'password123' });
+
+    const created = await agent.post('/api/projects').send({ title: 'Legacy', outline: sampleOutline() });
+    const loaded = await agent.get(`/api/projects/${created.body.project.id}`);
+    expect(loaded.body.project.outline).toEqual(sampleOutline());
+    expect(loaded.body.project.commentsEnabled).toBe(true);
+  });
+
+  it('rejects an invalid pinned source on save', async () => {
+    const { app } = createTestApp();
+    const agent = request.agent(app);
+    await agent.post('/api/auth/signup').send({ email: 'bad@example.com', password: 'password123' });
+    const outline = sampleOutline();
+    outline.segments[0].sources = [{ title: 'No link', summary: '' }];
+    const res = await agent.post('/api/projects').send({ title: 'Bad', outline });
+    expect(res.status).toBe(400);
   });
 });
 

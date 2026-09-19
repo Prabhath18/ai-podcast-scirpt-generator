@@ -2,10 +2,13 @@
 
 **Tone:** Motivational  **Total length:** 35 mins
 
+> Come back stronger, not just rested.
+
 ## Intro
 If you've ever hit a point where even opening your laptop felt physically heavy, this episode is for you. Burnout isn't a productivity problem you can fix with a long weekend -- it's a full system reset. Today we're talking through what burnout actually does to you, why the usual advice falls short, and a real comeback story from someone who rebuilt their career from the ground up.
 
 ## Segment 1: Naming It: What Burnout Actually Is (6 mins)
+*00:00 - 06:00*
 
 - Distinguish burnout from ordinary tiredness: chronic exhaustion, cynicism, and a collapse in your sense of effectiveness
 - Why burnout often shows up as irritability and numbness before it shows up as visible exhaustion
@@ -14,6 +17,7 @@ If you've ever hit a point where even opening your laptop felt physically heavy,
 *Transition: Once you can name it, the next question is: how did you actually get here?*
 
 ## Segment 2: The Slow Slide: How Burnout Actually Builds (7 mins)
+*06:00 - 13:00*
 
 - The gap between how much you're giving and how much control you feel you have over your own work
 - Chronic small overcommitments that each felt reasonable in isolation
@@ -23,6 +27,7 @@ If you've ever hit a point where even opening your laptop felt physically heavy,
 *Transition: Recognizing the slide is step one. Recovering from it is where most advice actually fails people.*
 
 ## Segment 3: Why 'Just Take a Vacation' Doesn't Work (8 mins)
+*13:00 - 21:00*
 
 - A week off addresses fatigue, not the underlying mismatch between demands and control that caused it
 - The rebound effect: many people return from a break and burn out again within months because nothing structural changed
@@ -32,6 +37,7 @@ If you've ever hit a point where even opening your laptop felt physically heavy,
 *Transition: So what does real recovery look like? Let's bring in someone who's actually lived it.*
 
 ## Segment 4: A Real Comeback: From Burned Out to Rebuilt (7 mins)
+*21:00 - 28:00*
 
 - Walk through the guest's lowest point and the specific moment they realized something had to change
 - The concrete first step they took, and why it was smaller than most people would expect
@@ -41,6 +47,7 @@ If you've ever hit a point where even opening your laptop felt physically heavy,
 *Transition: That story gives us a real blueprint. Let's turn it into something the listener can actually use this week.*
 
 ## Segment 5: Your First Three Moves This Week (7 mins)
+*28:00 - 35:00*
 
 - Move one: identify a single non-negotiable boundary you can set in the next 48 hours
 - Move two: tell one person the truth about how you're actually doing, not the polished version

@@ -1,22 +1,36 @@
 # Podcast Outline AI
 
-Generate a complete, ready-to-record podcast episode outline -- segments, talking points, timing cues, and guest questions -- in under a minute, then edit it inline and export a script. Built from a hackathon-style problem brief; see `REQUIREMENTS.md` for a full feature-to-code trace and how each piece was verified.
+Plan a podcast episode as a document you can edit like a script: a timed outline with talking points and transitions, alternative structures to compare, suggested sources, hooks and outros, and comments from collaborators. Export it as Markdown, plain text or a print-ready production script.
 
-## Overview
+![The outline workspace in the light theme](docs/screenshots/outline-light-desktop.png)
 
-A user describes an episode (topic, tone, length, optional guest), and the backend calls Google Gemini once to produce a structured JSON outline: an intro, 5-8 segments (each with a title, 3-5 talking points, a duration, and a transition line), guest interview questions, and an outro. The frontend renders that as editable cards with a proportional timeline bar, lets the user "Deep Dive" into any segment for AI research notes (a second, cached Gemini call that's given the full outline for context so it doesn't drift or repeat), and exports the final script as Markdown, plain text, or a print-to-PDF page. Everything works with **no account and no API key** via a bundled demo mode; logging in adds saved projects and shareable read-only links.
+| | |
+|---|---|
+| ![Dark theme](docs/screenshots/outline-dark-desktop.png) | ![Phone, light](docs/screenshots/outline-light-mobile.png) ![Phone, dark](docs/screenshots/outline-dark-mobile.png) |
 
-## Feature list (mapped to the brief)
+More screens: [variations](docs/screenshots/variations-light-desktop.png) · [research](docs/screenshots/research-light-desktop.png) · [comments](docs/screenshots/comments-dark-desktop.png) · [intro and outro](docs/screenshots/intro-outro-light-desktop.png) · [the brief](docs/screenshots/brief-light-desktop.png) · [print view](docs/screenshots/print-view.png)
 
-- **Topic & tone input** -- topic, five preset tones or a custom one, podcast name, host count, target length, optional guest name + bio.
-- **AI-generated outline** -- 5-8 segments, 3-5 talking points each, timing, transitions, intro/outro; server-side schema validation with one automatic retry; segment durations are always rescaled to sum exactly to the requested length.
-- **Outline display** -- collapsible segment cards, numbered badges, duration pills, a timeline bar showing each segment's share of the episode.
-- **Deep Dive** -- per-segment research notes + follow-up prompts from a second LLM call that receives the full outline for context; results are cached (in-memory for anonymous use, in SQLite for saved projects) and marked stale -- not silently regenerated -- when you edit that segment.
-- **Guest Questions** -- 5-8 tailored interview questions, editable/deletable/addable, with a one-click regenerate.
-- **Download Script** -- Markdown, plain text, and a print-to-PDF-friendly HTML view, all reflecting your edits.
-- **Inline editing** -- everything above is editable in place, with duration/timeline totals updating live and the draft persisted to `localStorage`.
-- **Accounts & projects** -- email/password auth (bcrypt + httpOnly JWT cookie), saved projects, rename/delete, and read-only share links -- all optional; the app is fully usable with zero login.
-- **Demo mode** -- three bundled sample outlines (tech, true crime, motivational) that work with no `GEMINI_API_KEY`; their exports are checked into `sample-output/`.
+`REQUIREMENTS.md` maps each feature to the files that implement it and how to verify it. `DESIGN.md` documents the design system.
+
+## What it does
+
+A user describes an episode (topic, tone, length, hosts, optional guest). The server calls Google Gemini to produce a structured outline: an intro, 5 to 8 segments (title, 3 to 5 talking points, duration, transition), guest questions, and an outro. The client renders it as a timeline and an editable document.
+
+- **Brief and outline.** Topic, five preset tones or a custom one, podcast name, host count, length, optional guest. Server-side schema validation with one automatic retry; durations always sum exactly to the requested length.
+- **Editing.** Click any text to edit it (Enter saves, Escape discards). Drag segments to reorder, or use the keyboard. Durations, the timeline and the running clock update live. Removals offer Undo.
+- **Multiple outline variations.** Ask for 2 or 3 structures in one request (for example chronological story, problem and solution, myth-busting). Compare them side by side, use one as the working outline, or copy single segments across (add or replace) with durations re-normalized.
+- **Research and source suggestions.** Wikipedia results for a segment or the whole topic (no key needed), and optional recent news through NewsAPI. Pin sources to a segment and include them in the export as a "Sources" section.
+- **Intro, hook and outro generator.** Five opening hooks (question, bold claim, story, statistic, cold open), a full intro script, three outros with a call to action, and a teaser line, in one request. Duo and group scripts mark speaker turns. Choose a hook or outro and it becomes the outline's intro or outro.
+- **Deep Dive.** Per-segment research notes and follow-up prompts, from a second call that receives the whole outline. Cached per segment and marked stale, never silently rewritten, when the segment changes.
+- **Guest Questions.** Generated, editable, regenerable.
+- **Comments.** Comment on the episode or a segment. Owners share a read-only link and choose whether signed-in visitors may comment. Owners can resolve or delete any comment; everyone can delete their own.
+- **Download Script.** Markdown, plain text, or a print view laid out as a production script with a timing column.
+- **Accounts (optional).** Email and password, saved projects, share links. Everything except saving and comments works with no login, using `localStorage`.
+- **Demo mode.** Three bundled outlines, each with sample variations, sources, hooks and comments, so every feature can be shown with no API key and no network.
+
+## Keyboard shortcuts
+
+`/` edit the brief · `J` / `K` next or previous segment · `E` Deep Dive · `R` Research · `C` Comments · `Ctrl/Cmd+S` save · `?` list shortcuts · `Esc` close. Single-key shortcuts are off while typing in a field.
 
 ## Architecture
 
@@ -24,73 +38,95 @@ A user describes an episode (topic, tone, length, optional guest), and the backe
 flowchart LR
     subgraph Browser
         UI["React app\n(Vite + Tailwind)"]
-        LS[("localStorage\ndraft + Deep Dive cache")]
+        LS[("localStorage\ndraft, variations, Deep Dive cache")]
     end
 
     subgraph API["Express API (server/)"]
         Routes["routes/*.js"]
-        Helper["services/llmHelper.js\n(parse + validate + retry)"]
+        Helper["services/llmHelper.js\n(parse, validate, retry once)"]
         LLM["services/llm.js\n(only file touching the SDK)"]
-        SQLite[("SQLite\nusers / projects / deep_dive_cache")]
-        MemCache[("In-memory cache\nanonymous Deep Dive + guest Qs")]
+        Research["services/research.js\n(timeouts, sanitising)"]
+        SQLite[("SQLite\nusers, projects, comments,\ndeep_dive_cache")]
+        MemCache[("In-memory cache\nanonymous Deep Dive, guest Qs,\nresearch")]
     end
 
-    Gemini[["Google Gemini API\n(gemini-3.6-flash)"]]
+    Gemini[["Google Gemini API"]]
+    Wiki[["Wikipedia API"]]
+    News[["NewsAPI (optional)"]]
 
     UI <--> LS
     UI -- "fetch /api/*" --> Routes
     Routes --> Helper --> LLM --> Gemini
+    Routes --> Research --> Wiki
+    Research -.-> News
     Routes --> SQLite
     Routes --> MemCache
 ```
 
+All LLM calls go through `generate()` in `server/services/llm.js`, wrapped by `llmHelper.js`. Every external HTTP call (Wikipedia, NewsAPI) is made by the server, never the browser.
+
 ## Setup
 
+Requires Node 18.18 or newer.
+
 ```bash
-git clone <this-repo> ai-podcast-generator && cd ai-podcast-generator
+git clone <this-repo> && cd <this-repo>
 npm install
-cp .env.example server/.env    # then edit server/.env: add GEMINI_API_KEY (optional), JWT_SECRET
+cp .env.example server/.env      # then edit server/.env: JWT_SECRET, and GEMINI_API_KEY if you have one
 npm run dev
 ```
 
-Open http://localhost:5173. No `GEMINI_API_KEY`? Click any "Try a demo" button -- the app works fully offline-from-Gemini in that mode.
+Open http://localhost:5173. Without a `GEMINI_API_KEY`, choose one of the demo outlines under the brief; the whole interface works from those.
 
-Run the test suite (see the verification note in `REQUIREMENTS.md` for why this project's own build couldn't run it before delivery):
+The repository folder may be named `ai-podcast-scirpt-generator` (a typo in the original name). It can be renamed at any time; nothing in the code depends on the folder name. The app, packages and page title are all "Podcast Outline AI".
 
-```bash
-npm test
-```
+| Command | What it does |
+|---|---|
+| `npm run dev` | API on :8787 and client on :5173 |
+| `npm test` | Server and client test suites |
+| `npm run lint` | ESLint over the client (`.js` and `.jsx`) |
+| `npm run build` | Production client build |
+| `npm run check:contrast` | WCAG AA check of every color pair in both themes |
+| `npm run screenshots` | Regenerates `docs/screenshots/` (needs the dev servers and Chrome or Edge) |
+| `npm run samples` | Regenerates `sample-output/` from the demo data |
+
+If the dev server fails with "port already in use", another copy is still running. Stop it, or set `PORT` in `server/.env`. After changing `tailwind.config.js`, restart the dev server; Vite does not reload it.
 
 ## Environment variables
 
-Set these in `server/.env` (copied from `.env.example`):
+Set these in `server/.env` (copied from `.env.example`).
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `GEMINI_API_KEY` | No | *(empty)* | Get one at https://aistudio.google.com/apikey. Without it, live generation returns a clear error and the UI points you at demo mode. |
+| `GEMINI_API_KEY` | No | *(empty)* | Get one at https://aistudio.google.com/apikey. Without it, live generation returns a clear error and the UI offers the demos. |
+| `NEWS_API_KEY` | No | *(empty)* | Enables the "Recent news" section in the Research panel. Free NewsAPI keys only answer requests from localhost and have a small daily limit, so this is a local-development extra. With no key the news section is hidden and nothing else changes. Get one at https://newsapi.org. |
 | `PORT` | No | `8787` | Express listen port. |
-| `DATABASE_PATH` | No | `./data/podcast.sqlite` | Relative paths resolve from `server/`. **See "Known limitations" -- this file is lost on ephemeral-disk hosts.** |
-| `JWT_SECRET` | Yes (prod) | insecure dev default | Sign with `openssl rand -hex 32` for anything beyond local dev. |
-| `CORS_ORIGIN` | No | `http://localhost:5173` | Comma-separated list of allowed origins for cross-site requests with credentials. |
-| `NODE_ENV` | No | `development` | Set to `production` when deployed -- flips cookies to `Secure; SameSite=None` for a cross-domain frontend/backend split (see Deployment). |
-| `GEMINI_MODEL` | No | `gemini-3.6-flash` | Override if Google renames/retires the pinned model (see "Known limitations"). |
+| `DATABASE_PATH` | No | `./data/podcast.sqlite` | Relative paths resolve from `server/`. See "Known limitations" for ephemeral-disk hosts. |
+| `JWT_SECRET` | Yes (production) | insecure dev default | Generate with `openssl rand -hex 32`. |
+| `CORS_ORIGIN` | No | `http://localhost:5173` | Comma-separated origins allowed to call the API with credentials. |
+| `NODE_ENV` | No | `development` | Set to `production` when deployed: cookies become `Secure; SameSite=None` for a split frontend and backend. |
+| `GEMINI_MODEL` | No | `gemini-3.6-flash` | Override if Google renames or retires the model. `gemini-2.5-flash` is no longer served to new API keys. |
 
-The client reads one build-time variable (set in `client/.env` or your host's env UI): `VITE_API_BASE_URL`, the deployed API's origin. Leave it unset for local dev -- Vite proxies `/api` to `localhost:8787` (see `client/vite.config.js`).
+Client build-time variables: `VITE_API_BASE_URL` is the deployed API's origin (leave unset for local development; Vite proxies `/api`). `API_TARGET` overrides the dev proxy target if the API is not on `localhost:8787`.
 
 ## Database schema
 
-SQLite via `better-sqlite3`, defined in `server/db/schema.sql` and applied automatically on server start.
+SQLite through `better-sqlite3`. `server/db/schema.sql` is the baseline; later changes are versioned migrations in `server/db/migrations.js`, tracked with SQLite's `PRAGMA user_version`. Each runs once, inside a transaction, on server start, so a database from an older release upgrades in place without losing data.
 
 ```
 users            (id, email UNIQUE, password_hash, created_at)
-projects         (id, user_id -> users.id, title, outline_json, share_token UNIQUE, created_at, updated_at)
+projects         (id, user_id -> users.id, title, outline_json, share_token UNIQUE,
+                  comments_enabled DEFAULT 1, created_at, updated_at)
 deep_dive_cache  (project_id -> projects.id, segment_id, content, is_stale, updated_at)
                  PRIMARY KEY (project_id, segment_id)
+comments         (id, project_id -> projects.id ON DELETE CASCADE, segment_id NULL = whole episode,
+                  author_user_id -> users.id, body, created_at, resolved DEFAULT 0)
+                 INDEX (project_id, segment_id)
 ```
 
-`outline_json` stores the full outline object (see schema below) as a JSON string -- simplest thing that works for a document this shape and size; no need for a segments table when the whole outline is always read/written as one unit.
+Migration 1 adds `projects.comments_enabled` (existing share links keep comments on) and the `comments` table. `outline_json` holds the whole outline as one document, including the optional fields below.
 
-### Outline JSON shape
+### Outline JSON
 
 ```json
 {
@@ -99,103 +135,122 @@ deep_dive_cache  (project_id -> projects.id, segment_id, content, is_stale, upda
   "total_duration_mins": 30,
   "intro": "string",
   "segments": [
-    { "id": 1, "title": "string", "talking_points": ["string", "..."], "duration_mins": 6, "transition": "string" }
+    {
+      "id": 1, "title": "string", "talking_points": ["3 to 5 strings"], "duration_mins": 6, "transition": "string",
+      "sources": [{ "type": "wikipedia", "title": "string", "url": "https://...", "summary": "string" }]
+    }
   ],
-  "guest_questions": ["string", "..."],
-  "outro": "string"
+  "guest_questions": ["string"],
+  "outro": "string",
+
+  "variations": [{ "approach": "Myth-busting", "rationale": "string", "outline": { "...a complete outline without its own variations..." } }],
+  "intro_outro": { "hooks": [{ "style": "Question", "text": "string" }], "intro_script": "string", "outros": ["string"], "teaser": "string" }
 }
 ```
+
+`segments[].sources`, `variations` and `intro_outro` are optional. An outline saved before they existed loads and saves unchanged (covered by a test). At most 3 variations and 10 pinned sources per segment.
 
 ## API reference
 
-All responses use one error shape on failure: `{ "error": "human message", "code": "MACHINE_CODE", "details"?: [...] }`. Auth uses an httpOnly session cookie, not a bearer token, so examples below assume a cookie jar (e.g. `curl -c/-b cookies.txt`, or a browser).
+Failures use one shape: `{ "error": "message", "code": "MACHINE_CODE", "details"?: [...] }`. Auth is an httpOnly session cookie, so examples assume a cookie jar.
 
-### `POST /api/auth/signup`
+### Auth
+
+`POST /api/auth/signup` and `POST /api/auth/login` take `{ email, password }` and return `{ user }`. `POST /api/auth/logout` returns 204. `GET /api/auth/me` returns `{ user }` or 401.
+
+### Generation
+
+| Route | Body | Response |
+|---|---|---|
+| `POST /api/generate-outline` | `{ topic, tone, podcastName?, hostCount, lengthMins, includeGuests?, guestNames?, guestBio? }` | `201 { outline }` |
+| `POST /api/generate-variations` | same as above, plus `count` (2 or 3) | `201 { variations: [{ approach, rationale, outline }], skipped }` |
+| `POST /api/intro-outro` | `{ topic, tone, hostCount?, podcastName?, lengthMins, outline }` | `{ introOutro: { hooks, intro_script, outros, teaser } }` |
+| `POST /api/expand-segment` | `{ topic, tone, lengthMins, outline, segment, projectId? }` | `{ deepDive: { notes, discussion_prompts }, cached }` |
+| `POST /api/guest-questions` | `{ topic, tone, guestNames?, guestBio?, outline }` | `{ questions, cached }` |
+
+`generate-variations` returns every variation that validates. If some still fail after the retry, the valid ones are returned and `skipped` says how many were left out; if none validate the response is `502 LLM_INVALID_RESPONSE`. Durations in each variation are normalized to `lengthMins`. `intro-outro` requires exactly five hooks (one per style), three outros, and, for `duo` and `group`, `Host 1:` and `Host 2:` turn labels; a solo intro must have none.
+
+Other errors: `400 VALIDATION_ERROR`, `503 LLM_NOT_CONFIGURED`, `502 LLM_INVALID_RESPONSE`, `429 RATE_LIMITED`.
+
+### Research
+
+`GET /api/research?topic=...&segmentTitle=...`
+
 ```json
-// request
-{ "email": "me@example.com", "password": "at-least-8-chars" }
-// 201 response
-{ "user": { "id": 1, "email": "me@example.com" } }
-```
-
-### `POST /api/auth/login`
-Same shape as signup. `401 { code: "INVALID_CREDENTIALS" }` on failure (deliberately identical whether the email exists or not).
-
-### `POST /api/auth/logout`
-No body. `204 No Content`.
-
-### `GET /api/auth/me`
-`200 { "user": {...} }` or `401 { code: "UNAUTHENTICATED" }`.
-
-### `POST /api/generate-outline`
-```json
-// request
 {
-  "topic": "The rise of AI in education",
-  "tone": "Educational",
-  "podcastName": "The Weekly Signal",
-  "hostCount": "solo",
-  "lengthMins": 30,
-  "includeGuests": true,
-  "guestNames": "Dr. Amara Okafor",
-  "guestBio": "AI researcher focused on classroom tools"
+  "wikipedia": { "results": [{ "type": "wikipedia", "title": "...", "summary": "...", "url": "https://en.wikipedia.org/wiki/..." }], "error": null },
+  "news": { "enabled": false, "results": [], "error": null },
+  "disclaimer": "Suggested sources: verify before citing.",
+  "cached": false
 }
-// 201 response
-{ "outline": { "episode_title": "...", "segments": [ ... ], "...": "..." } }
-```
-`400 VALIDATION_ERROR` for bad input, `503 LLM_NOT_CONFIGURED` with no API key, `502 LLM_INVALID_RESPONSE` if Gemini's response still fails validation after one retry.
-
-### `POST /api/expand-segment` (Deep Dive)
-```json
-// request
-{ "topic": "...", "tone": "...", "lengthMins": 30, "outline": { ... }, "segment": { "id": 2, "title": "...", "talking_points": [...] }, "projectId": 4 }
-// 200 response
-{ "deepDive": { "notes": "paragraph one\n\nparagraph two", "discussion_prompts": ["...", "..."] }, "cached": false }
-```
-`projectId` is optional; when present and owned by the logged-in caller, the result is cached in SQLite (survives restarts) instead of the anonymous in-memory cache.
-
-### `POST /api/guest-questions`
-```json
-// request
-{ "topic": "...", "tone": "...", "guestNames": "...", "guestBio": "...", "outline": { ... } }
-// 200 response
-{ "questions": ["...", "..."], "cached": false }
 ```
 
-### `GET /api/projects` / `POST /api/projects` / `GET|PUT|DELETE /api/projects/:id`
-Require login. `POST`/`PUT` bodies: `{ "title": "string", "outline": { ... } }` (either field optional on `PUT`). Returns `{ "project": { "id", "title", "outline", "shareToken", "createdAt", "updatedAt" } }`. Reading/updating/deleting a project you don't own returns `404 NOT_FOUND` (not `403`) so ownership isn't leaked.
+Every item comes from an API response; no LLM is involved. Titles and summaries are stripped of markup and truncated, Wikipedia URLs are built from the title, and news URLs must be `http(s)`. Calls time out after 6 seconds. A failing provider reports its own `error` and the other still returns. Successful lookups are cached for an hour; failures are not. Limited to 20 requests per minute per IP.
 
-### `POST /api/projects/:id/share` / `DELETE /api/projects/:id/share`
-Creates/revokes a share token. `POST` returns `{ "shareToken": "..." }`.
+### Projects and sharing (login required)
 
-### `GET /api/shared/:token`
-No login required. `200 { "title": "...", "outline": { ... }, "updatedAt": "..." }` or `404` if the token is invalid/revoked.
+`GET|POST /api/projects`, `GET|PUT|DELETE /api/projects/:id`. Bodies are `{ title, outline }`. A project you don't own returns `404`, not `403`. Responses include `commentsEnabled`.
+
+`POST /api/projects/:id/share` creates a link (`{ shareToken }`). `PATCH /api/projects/:id/share` with `{ commentsEnabled: boolean }` turns comments on or off for that link. `DELETE /api/projects/:id/share` revokes it.
+
+`GET /api/shared/:token` needs no login and returns `{ title, outline, updatedAt, commentsEnabled, viewerIsOwner }`.
+
+### Comments
+
+The same handlers serve two entry points: `/api/projects/:id/comments` for the owner, and `/api/shared/:token/comments` for anyone signed in who holds a valid link.
+
+| Route | Who | Notes |
+|---|---|---|
+| `GET .../comments` | owner; signed-in link holders | `{ comments: [{ id, segmentId, body, createdAt, resolved, author: { name }, isMine }] }`. `name` is the email prefix; emails are never returned. |
+| `POST .../comments` | same | `{ body, segmentId? }`. `body` is 1 to 1000 characters; `segmentId` must be `null` (whole episode) or a segment of the outline. 15 per minute per IP. |
+| `PATCH .../comments/:commentId` | owner only | `{ resolved: boolean }` |
+| `DELETE .../comments/:commentId` | owner (any comment), author (their own) | 204 |
+
+Status codes: `401` when signed out, `404` for an unknown project, link or comment (and for another user's project), `403 FORBIDDEN` when acting outside your role, `403 COMMENTS_DISABLED` when the owner has switched comments off for the link. The owner's own routes keep working when the link's comments are off. The client polls every 30 seconds while the panel is open and again whenever it is opened; there are no websockets.
 
 ## Prompt design
 
-All three LLM calls (outline, Deep Dive, guest questions) share one context-building helper (`server/prompts/outlinePrompt.js#buildContextBlock`) that restates the topic, tone (with a one-line style note per tone), and target length verbatim in every prompt -- this is the main defense against tone drift across the multiple calls the brief calls out as a risk. The Deep Dive prompt additionally receives the *entire* outline (not just the target segment) so it can avoid repeating what other segments already cover.
+Every call restates the topic, tone (with a one-line style note) and target length through one helper, `buildContextBlock` in `server/prompts/outlinePrompt.js`, which is the main defense against tone drift across calls. Deep Dive and the intro/outro prompt also receive the outline, so they don't repeat what other segments cover.
 
-Every call uses Gemini's JSON mode (`responseMimeType: "application/json"` + a `responseSchema`, defined in `server/prompts/schemas.js`) rather than asking nicely for JSON in the prompt text -- schema-constrained decoding is far more reliable than parsing free text, but not perfect, so `server/services/llmHelper.js` still strips markdown code fences, `JSON.parse`s, and validates the result against `server/validators/outlineSchema.js`'s business rules (5-8 segments, 3-5 points each, etc. -- rules JSON-schema alone can't express). On a validation failure, it retries exactly once with the specific errors appended to the prompt so the model can self-correct, then gives up with a `502`.
+All calls use Gemini's JSON mode with a response schema (`server/prompts/schemas.js`), then `llmHelper.js` strips code fences, parses, and validates against rules a JSON schema can't express (segment and point counts, hook styles, speaker labels). On failure it retries once with the specific errors appended, then gives up with `502`. A validator may also return a `salvage` subset, which is how variations return the valid ones. The variations prompt asks for different structures and the server rejects a repeated approach label, so "different" is enforced, not hoped for. The statistic hook may not invent a number: the prompt asks for a `[verify: ...]` placeholder when unsure.
+
+## Testing and verification
+
+`npm test` runs 198 tests: 126 on the server and 72 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
+
+**Server** (Vitest, Supertest, an in-memory SQLite database per test, LLM and `fetch` mocked): outline generation, validation and retry; variations (validator, partial-failure salvage, duplicate approaches, count limits); intro and outro (schema, speaker labels, retry); the research proxy (Wikipedia mapping, fallback query, empty results, upstream failure, caching, news on and off, key sent as a header); comment permissions for owner, commenter, outsider and comments-disabled; input limits and SQL metacharacters; schema migrations (upgrade from a version-0 database with data, idempotence, cascade); project persistence of the optional fields; auth, ownership and share tokens.
+
+**Client** (Vitest, no DOM): duration normalization, the running clock, blending (add, replace, limits, total preserved), the workspace reducer (reorder, remove limits, undo, pinning, hooks), export formatting (timings, sources, teaser, escaping, page-break rules), relative time.
+
+**Also run by hand against the running app** (Chrome driven by Playwright, `scripts/screenshots.mjs` and ad-hoc scripts): 37 checks on inline editing, keyboard reorder, undo, shortcuts, local comments, pinning and export with and without sources, using and blending variations, choosing hooks and outros, save prompts, and the phone sheet (focus in, Escape, focus back, no horizontal scroll); and a 20-check two-user flow (owner saves and shares, visitor signs up and comments, owner resolves, comments switched off, sharing stopped). That an email address is never returned in comment data is asserted by a server test, not by the browser run. These scripts are not part of the repository.
+
+**Live model.** The variations and intro/outro prompts were each run once against the real Gemini API (variations: two distinct structures with durations summing to 30; intro/outro for a duo: five hooks in five styles, `Host 1:` and `Host 2:` turns, three outros, a teaser).
+
+**Not verified.** No screen reader (NVDA, VoiceOver) was used; keyboard paths, landmarks, labels and live regions are in place and were checked in a browser only. NewsAPI was tested with a mocked `fetch`, not a real key. The print layout was reviewed as rendered HTML in a browser. A PDF was generated from it, but its page breaks were not inspected page by page and it was not printed on paper; the rule that keeps a segment together on one page is set in CSS and asserted in a test, not observed across pages.
 
 ## Known limitations
 
-- **SQLite persistence**: on hosts with an ephemeral/temporary filesystem (some free tiers of Render/Railway, most serverless platforms), `server/data/podcast.sqlite` -- and every account and saved project in it -- is lost on restart or redeploy. Use a host with a persistent disk/volume for anything beyond a demo (see Deployment).
-- **Anonymous caching is in-memory**: Deep Dive/guest-question results for logged-out users live in a `Map` in the Node process (`server/utils/memoryCache.js`) and reset on restart or if you're load-balanced across multiple instances. Saved-project caching (`deep_dive_cache` table) doesn't have this problem.
-- **Rate limiting is per-process**: `express-rate-limit`'s default store is in-memory, so limits are per server instance, not global, if you scale horizontally without a shared store (e.g. Redis).
-- **No email verification or password reset** -- signup/login only, intentionally, to keep the auth surface small for a project this scope.
-- **Model pinning**: `GEMINI_MODEL` defaults to `gemini-3.6-flash` (`gemini-2.5-flash` now returns 404 for new users). If Google renames or retires it, set `GEMINI_MODEL` in the environment; no code change needed unless the SDK's call shape itself changes.
-- **This build's own verification was static, not executed**: the sandbox this was built in blocks the npm registry entirely (see `REQUIREMENTS.md`), so `npm install`/`npm test` have not actually been run against this exact code yet -- you should be the first to run them. Every file was syntax-checked and the full import graph was resolved, and the dependency-free logic modules (validator, duration normalizer, export formatter) were executed directly and passed, but the parts that need Express/SQLite/React-rendering/Vite were reviewed, not run.
-- **Accessibility and responsiveness were designed for, not audited with real assistive tech** -- semantic roles, labels, focus rings, and keyboard paths are in place throughout, but this hasn't been run through a screen reader.
+- **SQLite persistence.** On hosts with an ephemeral filesystem, `server/data/podcast.sqlite`, with every account, project and comment, is lost on restart. Use a persistent volume (see Deployment).
+- **In-memory caches.** Anonymous Deep Dive, guest-question and research results live in the Node process and reset on restart or across instances.
+- **Per-process rate limiting.** `express-rate-limit` uses its in-memory store, so limits are per instance unless you add a shared store.
+- **No email verification or password reset.**
+- **Comments.** The thread is visible to the owner and to every signed-in visitor holding the link, not only to each author. Comments cannot be edited, only deleted. There are no notifications; new comments appear when the panel is opened or on the next 30-second poll. Comments on a segment that is later removed stay in the database and show under "All" as "Removed segment". Demo comments live in the browser only.
+- **Research.** Search text comes from the segment title and topic, with no LLM keyword step. Wikipedia is English only. NewsAPI's free tier works only from localhost and is limited daily.
+- **Intro and outro.** "Regenerate all" rewrites the whole set (hooks, script, outros, teaser) in one request; single items cannot be regenerated individually.
+- **Variations.** Three are kept at most. Using one replaces the title, intro, segments, guest questions and outro of the working outline (with Undo); the stored alternatives and the intro/outro set are kept. A replaced segment gets a new id, so its old Deep Dive does not carry over.
+- **Free-tier model limits.** Variations and intro/outro use one request each on purpose. The LLM endpoints share a limit of 12 requests per minute per IP.
+- **Model pinning.** `GEMINI_MODEL` defaults to `gemini-3.6-flash`. If Google retires it, set the variable; no code change is needed unless the SDK's call shape changes.
+- **Accessibility** has not been audited with assistive technology (see "Not verified").
 
 ## Deployment
 
-A typical split deployment: static frontend on Vercel, API on Railway or Render.
+A typical split deployment: static client on Vercel, API on Railway or Render.
 
-1. **Backend (Railway/Render)**: deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `GEMINI_API_KEY`, `JWT_SECRET`, `NODE_ENV=production`, and `CORS_ORIGIN=https://your-frontend-domain.vercel.app`. **Attach a persistent volume/disk** and point `DATABASE_PATH` at a path inside it -- without one, every deploy wipes your users and projects.
-2. **Frontend (Vercel)**: deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL=https://your-api-domain.up.railway.app`.
-3. **CORS + cookies**: the frontend and backend are now on different domains, which browsers treat as cross-site. `server/middleware/auth.js` already switches the session cookie to `Secure; SameSite=None` when `NODE_ENV=production` (required for a cross-domain cookie to be sent at all) and `server/app.js` restricts CORS to the exact origins in `CORS_ORIGIN` with `credentials: true`. Double-check both env vars are set correctly, or auth will silently fail (login "succeeds" but `/api/auth/me` never sees the cookie).
-4. Re-run `npm run build -w client` locally first (or let Vercel do it) to catch any build-time issues before deploying.
+1. **API.** Deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `GEMINI_API_KEY`, `JWT_SECRET`, `NODE_ENV=production` and `CORS_ORIGIN=https://your-frontend-domain`. Attach a persistent volume and point `DATABASE_PATH` inside it. Optionally set `NEWS_API_KEY` (see the note above about free-tier limits).
+2. **Client.** Deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL` to the API's origin.
+3. **Cookies and CORS.** With the client and API on different domains, the session cookie must be `Secure; SameSite=None`, which the server does when `NODE_ENV=production`, and CORS must list the exact client origin with credentials. If login appears to succeed but `/api/auth/me` never sees the cookie, check both variables.
+4. Run `npm run build` locally first to catch build problems before deploying.
 
-## Why not just use ChatGPT?
+## Why not just use a chat assistant?
 
-You can absolutely paste the brief into ChatGPT and get an outline. What this app adds: a schema that's enforced every time (5-8 segments, 3-5 points, always present intro/outro/transitions) instead of a differently-shaped answer each chat; a UI built around *editing* that structure -- per-segment cards, add/remove talking points, a live timeline -- instead of hand-reformatting prose; a second, context-aware call per segment for deeper research that's cached so you're not re-paying for it or re-asking the same question; guest questions that regenerate independently as you refine the guest's bio; and one-click export to three ready-to-use formats. It's the difference between a chat transcript and a tool -- the value is in the structure, the editing surface, and not needing to redo the prompt-engineering yourself.
+You can paste a brief into a general chat assistant and get an outline. This app adds a schema that is enforced every time, a document built for editing that structure, timings that stay consistent as you edit, alternatives you can compare and blend, sources that come from real APIs, hooks and outros that respect your host setup, collaborators who can comment on a specific segment, and exports ready to record from.

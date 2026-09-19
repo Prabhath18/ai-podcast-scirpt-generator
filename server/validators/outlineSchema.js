@@ -1,11 +1,14 @@
 // Structural + business-rule validation for outline objects, whether they
 // came fresh from the LLM or from a client PUT request. Kept dependency-free
 // (no zod/ajv) so the rules are easy to read and easy to unit test.
+import { validateIntroOutro } from './introOutroSchema.js';
 
 const MIN_SEGMENTS = 5;
 const MAX_SEGMENTS = 8;
 const MIN_TALKING_POINTS = 3;
 const MAX_TALKING_POINTS = 5;
+const MAX_VARIATIONS = 3;
+const MAX_SOURCES_PER_SEGMENT = 10;
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -15,15 +18,71 @@ function pushError(errors, field, message) {
   errors.push({ field, message });
 }
 
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\/\S+$/i.test(value) && value.length <= 500;
+}
+
+// Sources a user pinned to a segment (see routes/research.js). Optional, so
+// outlines saved before this feature existed stay valid.
+function validateSources(sources, label, errors) {
+  if (!Array.isArray(sources)) {
+    pushError(errors, label, 'sources must be an array.');
+    return;
+  }
+  if (sources.length > MAX_SOURCES_PER_SEGMENT) {
+    pushError(errors, label, `A segment can pin at most ${MAX_SOURCES_PER_SEGMENT} sources.`);
+  }
+  sources.forEach((source, i) => {
+    if (!source || !isNonEmptyString(source.title) || !isHttpUrl(source.url) || typeof source.summary !== 'string') {
+      pushError(errors, `${label}[${i}]`, 'Each source needs a title, an http(s) url and a summary.');
+    }
+  });
+}
+
+// Alternative outlines stored next to the working one: { approach, rationale, outline }.
+function validateVariations(variations, errors) {
+  if (!Array.isArray(variations)) {
+    pushError(errors, 'variations', 'variations must be an array.');
+    return;
+  }
+  if (variations.length > MAX_VARIATIONS) {
+    pushError(errors, 'variations', `At most ${MAX_VARIATIONS} variations are stored.`);
+  }
+  variations.forEach((variation, i) => {
+    const label = `variations[${i}]`;
+    const result = validateVariation(variation);
+    result.errors.forEach((e) => pushError(errors, `${label}.${e.field}`, e.message));
+  });
+}
+
+/** One variation: { approach, rationale, outline } where outline is a complete, valid outline. */
+export function validateVariation(variation) {
+  const errors = [];
+  if (!variation || typeof variation !== 'object') {
+    return { valid: false, errors: [{ field: 'variation', message: 'Variation must be an object.' }] };
+  }
+  if (!isNonEmptyString(variation.approach) || variation.approach.length > 80) {
+    pushError(errors, 'approach', 'approach is required (80 characters or fewer).');
+  }
+  if (typeof variation.rationale !== 'string' || variation.rationale.length > 400) {
+    pushError(errors, 'rationale', 'rationale must be a string (400 characters or fewer).');
+  }
+  const inner = validateOutline(variation.outline, { isVariation: true });
+  inner.errors.forEach((e) => pushError(errors, `outline.${e.field}`, e.message));
+  return { valid: errors.length === 0, errors };
+}
+
 /**
  * Validates an outline object against the shared schema:
  * { episode_title, tone, total_duration_mins, intro, segments[], guest_questions[], outro }
+ * plus the optional fields added later: `variations[]`, `intro_outro`, and
+ * `sources[]` on each segment.
  *
  * Returns { valid: boolean, errors: [{ field, message }] }. Never throws --
  * callers decide whether an invalid outline is a hard failure (LLM response)
  * or a 400 response (user-submitted edit).
  */
-export function validateOutline(outline) {
+export function validateOutline(outline, { isVariation = false } = {}) {
   const errors = [];
 
   if (!outline || typeof outline !== 'object' || Array.isArray(outline)) {
@@ -54,6 +113,16 @@ export function validateOutline(outline) {
     pushError(errors, 'guest_questions', 'guest_questions must be an array of strings.');
   } else if (outline.guest_questions.some((q) => typeof q !== 'string')) {
     pushError(errors, 'guest_questions', 'Every guest question must be a string.');
+  }
+
+  if (outline.variations !== undefined) {
+    if (isVariation) pushError(errors, 'variations', 'A variation cannot contain its own variations.');
+    else validateVariations(outline.variations, errors);
+  }
+
+  if (outline.intro_outro !== undefined) {
+    const stored = validateIntroOutro(outline.intro_outro);
+    stored.errors.forEach((e) => pushError(errors, `intro_outro.${e.field}`, e.message));
   }
 
   if (!Array.isArray(outline.segments)) {
@@ -88,6 +157,7 @@ export function validateOutline(outline) {
     if (typeof segment.transition !== 'string') {
       pushError(errors, `${label}.transition`, 'Segment transition must be a string (may be empty).');
     }
+    if (segment.sources !== undefined) validateSources(segment.sources, `${label}.sources`, errors);
     if (!Array.isArray(segment.talking_points)) {
       pushError(errors, `${label}.talking_points`, 'talking_points must be an array of strings.');
     } else {
@@ -115,4 +185,6 @@ export const OUTLINE_LIMITS = {
   MAX_SEGMENTS,
   MIN_TALKING_POINTS,
   MAX_TALKING_POINTS,
+  MAX_VARIATIONS,
+  MAX_SOURCES_PER_SEGMENT,
 };

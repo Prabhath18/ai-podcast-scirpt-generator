@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .bg { fill: #b8401b; }
+    .row { fill: #fcfaf5; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #e0704a; }
+      .row { fill: #1a1108; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="6" />
+  <rect class="row" x="7" y="7" width="18" height="4" rx="1" />
+  <rect class="row" x="7" y="14" width="11" height="4" rx="1" />
+  <rect class="row" x="7" y="21" width="15" height="4" rx="1" />
+</svg>

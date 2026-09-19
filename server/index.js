@@ -31,7 +31,17 @@ if (!process.env.GEMINI_API_KEY) {
 const app = createApp(db);
 const port = Number(process.env.PORT) || 8787;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log(`[server] AI Podcast Generator API listening on http://localhost:${port}`);
+  console.log(`[server] Podcast Outline AI API listening on http://localhost:${port}`);
+});
+
+server.on('error', (err) => {
+  // eslint-disable-next-line no-console
+  console.error(
+    err.code === 'EADDRINUSE'
+      ? `[server] Port ${port} is already in use -- another dev server is probably still running. Stop it, or set PORT in server/.env.`
+      : `[server] Failed to start: ${err.message}`,
+  );
+  process.exit(1);
 });

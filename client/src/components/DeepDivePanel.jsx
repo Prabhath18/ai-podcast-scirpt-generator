@@ -1,24 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Sparkles, RefreshCw, AlertTriangle, X, Info } from 'lucide-react';
-import { DeepDiveSkeleton } from './SkeletonLoader.jsx';
+import { PanelSkeleton } from './Skeletons.jsx';
 import EmptyState from './EmptyState.jsx';
 import { api, ApiError } from '../services/api.js';
 import { segmentContentKey } from '../utils/segmentSnapshot.js';
 
 /**
- * Shared Deep Dive body, used both as the persistent desktop sidebar and
- * inside a mobile bottom-sheet modal (see WorkspacePage.jsx). Owns its own
- * fetch lifecycle against the workspace's per-segment cache.
+ * Deep Dive body: research notes and follow-up prompts for one segment, from a
+ * second LLM call that sees the whole outline. Results are cached per segment
+ * and marked stale (never silently regenerated) when the segment is edited.
+ * Notes are only requested when the user asks: a non-zero `requestId` means they
+ * just chose Deep Dive (or pressed E), and the panel clears it via
+ * `onRequestHandled` once acted on. Merely selecting a segment spends nothing.
  */
-export default function DeepDivePanel({ activeSegment, workspace, onClose, showCloseButton }) {
+export default function DeepDivePanel({ segment, workspace, requestId, onRequestHandled }) {
   const { outline, form, getDeepDive, setDeepDive, activeProjectId } = workspace;
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const cached = activeSegment ? getDeepDive(activeSegment) : null;
+  const cached = segment ? getDeepDive(segment) : null;
 
   const fetchDeepDive = useCallback(
-    async (segment) => {
+    async (target) => {
       setLoading(true);
       setErrorMsg(null);
       try {
@@ -27,12 +29,18 @@ export default function DeepDivePanel({ activeSegment, workspace, onClose, showC
           tone: form.tone === 'Other' ? form.customTone : form.tone,
           lengthMins: Number(form.lengthMins),
           outline,
-          segment,
+          segment: target,
           projectId: activeProjectId || undefined,
         });
-        setDeepDive(segment.id, segmentContentKey(segment), result.deepDive);
+        setDeepDive(target.id, segmentContentKey(target), result.deepDive);
       } catch (err) {
-        setErrorMsg(err instanceof ApiError ? err.message : 'Could not generate research notes. Please try again.');
+        setErrorMsg(
+          err instanceof ApiError && err.code === 'LLM_NOT_CONFIGURED'
+            ? 'Deep Dive needs a Gemini API key on the server. The demo outlines still work; open one from the brief.'
+            : err instanceof ApiError
+              ? err.message
+              : 'Could not write the research notes. Check your connection and try again.',
+        );
       } finally {
         setLoading(false);
       }
@@ -40,118 +48,81 @@ export default function DeepDivePanel({ activeSegment, workspace, onClose, showC
     [form, outline, activeProjectId, setDeepDive],
   );
 
-  // Auto-fetch the first time a segment is opened; a stale cache entry is
-  // shown as-is with a banner instead, so an edit never silently re-spends
-  // an LLM call without the user asking for it.
+  // An explicit request writes notes if there are none yet. A stale entry is shown
+  // as-is with a banner, so an edit never spends an LLM call unless the user asks.
   useEffect(() => {
-    if (!activeSegment) return;
-    const entry = getDeepDive(activeSegment);
-    if (!entry) fetchDeepDive(activeSegment);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the selected segment changes
-  }, [activeSegment?.id]);
+    if (!requestId) return;
+    onRequestHandled();
+    if (segment && !getDeepDive(segment)) fetchDeepDive(segment);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only per explicit request
+  }, [requestId]);
 
-  if (!activeSegment) {
-    return (
-      <div className="rounded-2xl border border-border bg-surface-raised shadow-card p-5 h-full">
-        <EmptyState
-          icon={Sparkles}
-          title="Deep Dive"
-          description="Click “Deep Dive” on any segment to get 2-3 paragraphs of research notes and follow-up discussion prompts."
-        />
-      </div>
-    );
+  if (!segment) {
+    return <EmptyState title="Pick a segment" description="Select a segment, then press E or choose Deep Dive on it. You get research notes and follow-up prompts written for that segment." />;
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface-raised shadow-card p-5 h-full flex flex-col">
-      <div className="flex items-start justify-between gap-3 mb-1">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-accent uppercase tracking-wide mb-0.5">Deep Dive</p>
-          <h2 className="font-semibold text-ink truncate">{activeSegment.title}</h2>
-        </div>
-        {showCloseButton && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close Deep Dive panel"
-            className="p-1.5 rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
+    <div>
+      {loading && <PanelSkeleton />}
+
+      {!loading && errorMsg && (
+        <div className="rounded-md border border-danger/40 bg-danger-tint p-3 text-sm text-danger" role="alert">
+          <p>{errorMsg}</p>
+          <button type="button" className="link-action mt-2 !text-danger" onClick={() => fetchDeepDive(segment)}>
+            Try again
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="mt-3 flex-1 overflow-y-auto scrollbar-thin pr-1">
-        {loading && <DeepDiveSkeleton />}
+      {!loading && !errorMsg && !cached && (
+        <div className="border border-dashed border-line-strong px-4 py-6">
+          <p className="font-serif text-lg font-semibold">No notes for this segment yet</p>
+          <p className="mt-1 text-sm text-ink-muted">Deep Dive writes 2 to 3 paragraphs of research and a few follow-up prompts, using the whole outline for context. It uses one request.</p>
+          <button type="button" className="btn btn-primary mt-4" onClick={() => fetchDeepDive(segment)}>Write research notes</button>
+        </div>
+      )}
 
-        {!loading && errorMsg && (
-          <div className="flex flex-col items-start gap-2 text-sm">
-            <p className="text-red-600 dark:text-red-400 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-              {errorMsg}
-            </p>
-            <button
-              type="button"
-              onClick={() => fetchDeepDive(activeSegment)}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover"
-            >
-              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" /> Try again
-            </button>
-          </div>
-        )}
-
-        {!loading && !errorMsg && cached && (
-          <div className="space-y-4">
-            {cached.stale && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-300">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <div className="flex-1">
-                  <p>This segment changed since these notes were generated.</p>
-                  <button
-                    type="button"
-                    onClick={() => fetchDeepDive(activeSegment)}
-                    className="mt-1 inline-flex items-center gap-1.5 font-medium underline underline-offset-2"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" /> Regenerate now
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3 text-sm text-ink leading-relaxed">
-              {cached.data.notes.split(/\n{2,}/).map((paragraph, i) => (
-                <p key={i}>{paragraph}</p>
-              ))}
+      {!loading && !errorMsg && cached && (
+        <div className="space-y-5">
+          {cached.stale && (
+            <div className="rounded-md border border-warn/40 bg-warn-tint p-3 text-sm text-warn">
+              <p>This segment changed after these notes were written.</p>
+              <button type="button" className="link-action mt-1 !text-warn" onClick={() => fetchDeepDive(segment)}>
+                Rewrite the notes
+              </button>
             </div>
+          )}
 
-            {cached.data.discussion_prompts?.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold text-ink-faint uppercase tracking-wide mb-2">Follow-up prompts</h3>
-                <ul className="space-y-1.5 text-sm text-ink-muted list-disc list-inside">
-                  {cached.data.discussion_prompts.map((p, i) => (
-                    <li key={i}>{p}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          <div className="space-y-3 font-serif text-prose">
+            {cached.data.notes.split(/\n{2,}/).map((paragraph, i) => (
+              <p key={i}>{paragraph}</p>
+            ))}
+          </div>
 
+          {cached.data.discussion_prompts?.length > 0 && (
+            <div>
+              <h3 className="label mb-2">If the conversation stalls</h3>
+              <ul className="space-y-2 text-sm">
+                {cached.data.discussion_prompts.map((prompt, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="mt-[0.7em] h-px w-2.5 shrink-0 bg-ink-faint" aria-hidden="true" />
+                    <span>{prompt}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+            <p className="text-xs text-ink-faint">Written by AI. Verify facts before you use them.</p>
             {!cached.stale && (
-              <button
-                type="button"
-                onClick={() => fetchDeepDive(activeSegment)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink"
-              >
-                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" /> Regenerate
+              <button type="button" className="link-action shrink-0" onClick={() => fetchDeepDive(segment)}>
+                Rewrite
               </button>
             )}
-
-            <p className="flex items-start gap-1.5 text-xs text-ink-faint pt-2 border-t border-border">
-              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
-              AI-generated, verify facts before using.
-            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

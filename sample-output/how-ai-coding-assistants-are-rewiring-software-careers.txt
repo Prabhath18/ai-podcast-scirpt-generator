@@ -2,6 +2,7 @@ HOW AI CODING ASSISTANTS ARE REWIRING SOFTWARE CAREERS
 ======================================================
 
 Tone: Educational   Total length: 45 mins
+Teaser: AI writes the first draft now. What is left for you?
 
 INTRO
 -----
@@ -9,6 +10,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 
 SEGMENT 1: FROM AUTOCOMPLETE TO AUTONOMOUS AGENTS  [6 mins]
 -----------------------------------------------------------
+  00:00 - 06:00
   * Trace the lineage: basic autocomplete, GitHub Copilot in 2021, chat-based assistants, and now agentic tools that can open files, run commands, and iterate on their own
   * Explain the core technique -- large language models trained on public code plus reinforcement learning from human coder feedback
   * Contrast 'suggests the next line' tools with 'plans and executes a multi-file change' tools, since listeners often conflate the two
@@ -18,6 +20,7 @@ SEGMENT 1: FROM AUTOCOMPLETE TO AUTONOMOUS AGENTS  [6 mins]
 
 SEGMENT 2: WHERE THEY GENUINELY SAVE TIME  [8 mins]
 ---------------------------------------------------
+  06:00 - 14:00
   * Boilerplate and glue code: API clients, config files, test scaffolding -- the tedious 20% that rarely needs creativity
   * Reading unfamiliar codebases faster by asking the assistant to summarize a module before diving in
   * Turning a vague bug report into a first hypothesis by pointing the assistant at the stack trace
@@ -27,6 +30,7 @@ SEGMENT 2: WHERE THEY GENUINELY SAVE TIME  [8 mins]
 
 SEGMENT 3: THE HIDDEN COSTS: SKILL ATROPHY AND SILENT BUGS  [8 mins]
 --------------------------------------------------------------------
+  14:00 - 22:00
   * Junior developers who lean on AI for logic they don't understand yet, and what that does to debugging skills a year later
   * Confidently wrong code: assistants that produce plausible-looking but subtly incorrect logic, especially around edge cases and concurrency
   * Security concerns -- models trained on public repos can reproduce insecure patterns (hardcoded secrets, SQL injection-prone queries)
@@ -36,6 +40,7 @@ SEGMENT 3: THE HIDDEN COSTS: SKILL ATROPHY AND SILENT BUGS  [8 mins]
 
 SEGMENT 4: A PRACTICAL FRAMEWORK FOR USING AI ASSISTANTS WELL  [8 mins]
 -----------------------------------------------------------------------
+  22:00 - 30:00
   * Rule of thumb: use AI to go from zero to a draft, never to skip understanding the draft you ship
   * Always ask the assistant to explain its own reasoning before accepting a nontrivial change
   * Treat AI-generated tests with suspicion -- verify they actually fail before the fix and pass after
@@ -45,6 +50,7 @@ SEGMENT 4: A PRACTICAL FRAMEWORK FOR USING AI ASSISTANTS WELL  [8 mins]
 
 SEGMENT 5: WHAT THIS MEANS FOR HIRING AND TEAM STRUCTURE  [8 mins]
 ------------------------------------------------------------------
+  30:00 - 38:00
   * Interview formats shifting away from pure algorithm puzzles toward code review and debugging exercises
   * Smaller teams shipping more -- what a 4-person startup can now build that used to need 12 people
   * The growing premium on system design and architecture skills, since AI is weaker at whole-system tradeoffs than at local code
@@ -54,6 +60,7 @@ SEGMENT 5: WHAT THIS MEANS FOR HIRING AND TEAM STRUCTURE  [8 mins]
 
 SEGMENT 6: YOUR MOVE: BUILDING AN AI-COMPLEMENTARY SKILL SET  [7 mins]
 ----------------------------------------------------------------------
+  38:00 - 45:00
   * Double down on the things AI is still bad at: system design, cross-team communication, judgment calls under ambiguity
   * Practice writing precise, specific prompts as a skill in itself -- vague prompts produce vague code
   * Keep at least one project where you deliberately code without assistance, to keep your unaided skills sharp

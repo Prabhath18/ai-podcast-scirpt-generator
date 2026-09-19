@@ -3,9 +3,11 @@ import crypto from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
 import { validateOutline } from '../validators/outlineSchema.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { commentsRouter, resolveOwnedProject } from './comments.js';
 
 export const projectsRouter = Router();
 projectsRouter.use(requireAuth);
+projectsRouter.use('/:id/comments', resolveOwnedProject, commentsRouter);
 
 function validationError(errors) {
   const error = new Error('Request failed validation.');
@@ -26,6 +28,7 @@ function toProjectDto(row) {
     title: row.title,
     outline: JSON.parse(row.outline_json),
     shareToken: row.share_token,
+    commentsEnabled: Boolean(row.comments_enabled),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -156,6 +159,20 @@ projectsRouter.post(
     const token = existing.share_token || crypto.randomBytes(16).toString('hex');
     db.prepare('UPDATE projects SET share_token = ? WHERE id = ?').run(token, existing.id);
     res.json({ shareToken: token });
+  }),
+);
+
+// PATCH /api/projects/:id/share -- turns comments on or off for this project's share link.
+projectsRouter.patch(
+  '/:id/share',
+  asyncHandler(async (req, res) => {
+    const db = req.app.locals.db;
+    const existing = loadOwnedProject(db, req.params.id, req.user.id);
+    if (typeof req.body?.commentsEnabled !== 'boolean') {
+      throw validationError([{ field: 'commentsEnabled', message: 'commentsEnabled must be true or false.' }]);
+    }
+    db.prepare('UPDATE projects SET comments_enabled = ? WHERE id = ?').run(req.body.commentsEnabled ? 1 : 0, existing.id);
+    res.json({ commentsEnabled: req.body.commentsEnabled });
   }),
 );
 

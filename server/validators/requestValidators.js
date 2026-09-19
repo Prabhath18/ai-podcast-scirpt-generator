@@ -2,7 +2,6 @@
 // outlineSchema.js, which validates the *response* shape -- this validates
 // what the *client sent us* before we spend an LLM call on it.
 
-const TONES = ['Conversational', 'Educational', 'Comedic', 'Investigative', 'Motivational'];
 const HOST_COUNTS = ['solo', 'duo', 'group'];
 
 export function validateOutlineRequest(body) {
@@ -79,4 +78,41 @@ export function validateGuestQuestionsRequest(body) {
   return { valid: errors.length === 0, errors };
 }
 
-export const AVAILABLE_TONES = TONES;
+
+export function validateVariationsRequest(body) {
+  const base = validateOutlineRequest(body);
+  const errors = [...base.errors];
+  const count = Number(body.count);
+  if (count !== 2 && count !== 3) {
+    errors.push({ field: 'count', message: 'count must be 2 or 3.' });
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateIntroOutroRequest(body) {
+  const errors = [];
+  if (!body.topic || typeof body.topic !== 'string') {
+    errors.push({ field: 'topic', message: 'topic is required.' });
+  }
+  if (!body.tone || typeof body.tone !== 'string') {
+    errors.push({ field: 'tone', message: 'tone is required.' });
+  }
+  if (body.hostCount && !HOST_COUNTS.includes(body.hostCount)) {
+    errors.push({ field: 'hostCount', message: `hostCount must be one of: ${HOST_COUNTS.join(', ')}.` });
+  }
+  if (!body.outline || !Array.isArray(body.outline.segments)) {
+    errors.push({ field: 'outline', message: 'outline with segments is required for context.' });
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateResearchRequest(body) {
+  const errors = [];
+  if (typeof body.topic !== 'string' || !body.topic.trim() || body.topic.length > 300) {
+    errors.push({ field: 'topic', message: 'topic is required (300 characters or fewer).' });
+  }
+  if (body.segmentTitle !== undefined && (typeof body.segmentTitle !== 'string' || body.segmentTitle.length > 200)) {
+    errors.push({ field: 'segmentTitle', message: 'segmentTitle must be a string of 200 characters or fewer.' });
+  }
+  return { valid: errors.length === 0, errors };
+}

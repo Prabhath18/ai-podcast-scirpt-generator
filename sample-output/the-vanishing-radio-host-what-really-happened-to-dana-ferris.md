@@ -2,10 +2,13 @@
 
 **Tone:** Investigative  **Total length:** 50 mins
 
+> Twelve minutes of dead air, and a case that never closed.
+
 ## Intro
 On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off her show at 2 a.m. and was never seen again. No body, no confirmed sighting, and a case file that police quietly closed nine years later. Tonight we walk through the timeline, the four suspects investigators never fully cleared, and a piece of evidence that resurfaced just last year and reopened the question everyone thought was settled.
 
 ## Segment 1: The Last Broadcast (7 mins)
+*00:00 - 07:00*
 
 - Reconstruct the final hour of Dana Ferris's show from the station's surviving call logs and a surviving cassette recording
 - Note the strange, unscheduled call she took at 1:42 a.m. that station staff couldn't later identify
@@ -15,6 +18,7 @@ On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off
 *Transition: That gas station sighting is the last confirmed trace of her. Everything after that is reconstruction.*
 
 ## Segment 2: The First 48 Hours -- and What Went Wrong (9 mins)
+*07:00 - 16:00*
 
 - Police didn't open a missing-persons file until 36 hours had passed, citing her history of unannounced trips
 - Her apartment was never sealed as a scene until day four, by which point her sister had already been inside cleaning
@@ -24,6 +28,7 @@ On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off
 *Transition: Those early mistakes mean a lot of physical evidence is simply gone. So the case leans heavily on people -- starting with who had a motive.*
 
 ## Segment 3: Suspect One and Two: The Co-Host and the Ex-Producer (9 mins)
+*16:00 - 25:00*
 
 - Her longtime co-host had been quietly pushed out of a joint contract renewal two weeks prior
 - The ex-producer had a restraining order filed against him by a different woman just eight months later
@@ -33,6 +38,7 @@ On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off
 *Transition: Neither of them was ever charged. But there's a third name that appears in the file far less often than it should.*
 
 ## Segment 4: The Overlooked Suspect: A Station Engineer's Story (8 mins)
+*25:00 - 33:00*
 
 - The overnight engineer's shift log shows he clocked out 40 minutes before his usual time that night, unexplained
 - He was interviewed once, for eleven minutes, and never re-contacted despite inconsistencies in his statement
@@ -42,6 +48,7 @@ On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off
 *Transition: For years, that was where the trail went cold. Then, last spring, something changed.*
 
 ## Segment 5: The 2025 Discovery That Reopened the Case (9 mins)
+*33:00 - 42:00*
 
 - A storage unit auction turned up a box of station archives, including a second, previously unknown recording from that night
 - Forensic audio analysis identifies a second voice in the background of the recording, not previously in any suspect list
@@ -51,6 +58,7 @@ On a foggy Tuesday morning in 1997, late-night radio host Dana Ferris signed off
 *Transition: All of this brings us to tonight's guest, who worked adjacent to this case for over a decade.*
 
 ## Segment 6: Weighing the Theories (8 mins)
+*42:00 - 50:00*
 
 - Lay out the three leading theories side by side: co-host/producer conspiracy, engineer confrontation gone wrong, and a stranger abduction
 - Which theory the surviving physical evidence actually supports best, and which it rules out

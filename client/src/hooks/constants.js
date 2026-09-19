@@ -6,6 +6,7 @@ export const OUTLINE_LIMITS = {
   MAX_SEGMENTS: 8,
   MIN_TALKING_POINTS: 3,
   MAX_TALKING_POINTS: 5,
+  MAX_SOURCES_PER_SEGMENT: 10,
 };
 
 export const TONES = ['Conversational', 'Educational', 'Comedic', 'Investigative', 'Motivational'];

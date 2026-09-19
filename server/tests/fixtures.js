@@ -16,3 +16,18 @@ export function sampleOutline(overrides = {}) {
     ...overrides,
   };
 }
+
+export function sampleVariation(approach = 'Chronological story', overrides = {}) {
+  return {
+    approach,
+    rationale: 'Suits the topic because it builds in order.',
+    outline: sampleOutline({ episode_title: `Episode: ${approach}` }),
+    ...overrides,
+  };
+}
+
+/** A raw LLM "variations" item: the shape the model returns, before the server assembles it. */
+export function rawVariation(approach, overrides = {}) {
+  const { episode_title, intro, segments, outro } = sampleOutline({ episode_title: `Episode: ${approach}` });
+  return { approach, rationale: 'A sensible way in.', episode_title, intro, segments, guest_questions: [], outro, ...overrides };
+}

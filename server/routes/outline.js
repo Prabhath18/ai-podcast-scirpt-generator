@@ -3,12 +3,24 @@ import { callStructuredLLM } from '../services/llmHelper.js';
 import { buildOutlinePrompt } from '../prompts/outlinePrompt.js';
 import { buildDeepDivePrompt } from '../prompts/deepDivePrompt.js';
 import { buildGuestQuestionsPrompt } from '../prompts/guestQuestionsPrompt.js';
-import { outlineResponseSchema, deepDiveResponseSchema, guestQuestionsResponseSchema } from '../prompts/schemas.js';
+import { buildVariationsPrompt } from '../prompts/variationsPrompt.js';
+import { buildIntroOutroPrompt } from '../prompts/introOutroPrompt.js';
+import {
+  outlineResponseSchema,
+  deepDiveResponseSchema,
+  guestQuestionsResponseSchema,
+  variationsResponseSchema,
+  introOutroResponseSchema,
+} from '../prompts/schemas.js';
 import { validateOutline } from '../validators/outlineSchema.js';
+import { validateGeneratedIntroOutro } from '../validators/introOutroSchema.js';
+import { buildVariationsValidator } from '../services/variations.js';
 import {
   validateOutlineRequest,
   validateExpandSegmentRequest,
   validateGuestQuestionsRequest,
+  validateVariationsRequest,
+  validateIntroOutroRequest,
 } from '../validators/requestValidators.js';
 import { normalizeDurations } from '../utils/duration.js';
 import { getCached, setCached, hashKey } from '../utils/memoryCache.js';
@@ -68,6 +80,67 @@ outlineRouter.post(
     outline.total_duration_mins = Number(lengthMins);
 
     res.status(201).json({ outline });
+  }),
+);
+
+// POST /api/generate-variations -- ONE call returns `count` differently structured outlines.
+outlineRouter.post(
+  '/generate-variations',
+  asyncHandler(async (req, res) => {
+    const { valid, errors } = validateVariationsRequest(req.body || {});
+    if (!valid) throw validationError(errors);
+
+    const { topic, tone, podcastName, hostCount, lengthMins, includeGuests, guestNames, guestBio } = req.body;
+    const count = Number(req.body.count);
+
+    const prompt = buildVariationsPrompt({
+      topic: topic.trim(),
+      tone: tone.trim(),
+      podcastName: podcastName?.trim(),
+      hostCount,
+      lengthMins: Number(lengthMins),
+      includeGuests: Boolean(includeGuests),
+      guestNames: guestNames?.trim(),
+      guestBio: guestBio?.trim(),
+      count,
+    });
+
+    const validate = buildVariationsValidator({
+      count,
+      tone: tone.trim(),
+      lengthMins: Number(lengthMins),
+      includeGuests: Boolean(includeGuests),
+    });
+    const { variations } = await callStructuredLLM(prompt, variationsResponseSchema, validate);
+
+    // `skipped` tells the UI how many variations failed validation twice and were dropped.
+    res.status(201).json({ variations, skipped: count - variations.length });
+  }),
+);
+
+// POST /api/intro-outro -- hooks in five styles, a full intro script, three outros and a teaser, in one call.
+outlineRouter.post(
+  '/intro-outro',
+  asyncHandler(async (req, res) => {
+    const { valid, errors } = validateIntroOutroRequest(req.body || {});
+    if (!valid) throw validationError(errors);
+
+    const { topic, tone, podcastName, lengthMins, outline } = req.body;
+    const hostCount = req.body.hostCount || 'solo';
+
+    const prompt = buildIntroOutroPrompt({ topic, tone, podcastName, hostCount, lengthMins, outline });
+    const result = await callStructuredLLM(prompt, introOutroResponseSchema, (data) =>
+      validateGeneratedIntroOutro(data, hostCount),
+    );
+
+    res.json({
+      introOutro: {
+        hooks: result.hooks.map(({ style, text }) => ({ style, text: text.trim() })),
+        intro_script: result.intro_script.trim(),
+        outros: result.outros.map((text) => text.trim()),
+        teaser: result.teaser.trim(),
+      },
+    });
   }),
 );
 

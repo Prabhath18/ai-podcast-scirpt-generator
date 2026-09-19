@@ -1,77 +1,185 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/newsreader';
+@import '@fontsource-variable/newsreader/wght-italic.css';
+@import '@fontsource-variable/jetbrains-mono';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------
-   Design tokens. Colors are stored as "R G B" triples (no rgb() wrapper)
-   so Tailwind's rgb(var(--x) / <alpha-value>) pattern can apply opacity.
-   One accent color, neutral grays, both themes share the same scale.
+   Design tokens (see DESIGN.md). Each color is an "R G B" triple so
+   Tailwind can apply opacity. The dark theme is its own palette -- warmer
+   and lower-contrast at the extremes -- not an inversion of the light one,
+   and its accent is a lighter vermilion that keeps 4.5:1 on dark surfaces.
 --------------------------------------------------------------------- */
 :root {
-  --color-accent: 91 90 242; /* indigo-500-ish */
-  --color-accent-hover: 74 72 224;
-  --color-accent-subtle: 238 238 253;
+  --paper: 245 241 232;
+  --page: 252 250 245;
+  --sunken: 237 232 220;
+  --line: 223 216 200;
+  --line-strong: 199 190 170;
 
-  --color-surface: 255 255 255;
-  --color-surface-raised: 255 255 255;
-  --color-surface-sunken: 246 247 250;
-  --color-border: 228 230 235;
+  --ink: 30 27 22;
+  --ink-muted: 88 82 70;
+  --ink-faint: 104 97 82;
 
-  --color-ink: 23 26 33;
-  --color-ink-muted: 100 107 120;
-  --color-ink-faint: 148 155 166;
+  --accent: 184 64 27;
+  --accent-hover: 156 52 20;
+  --accent-tint: 243 227 218;
+  --accent-fg: 255 255 255;
+
+  --ok: 47 107 63;
+  --ok-tint: 226 238 226;
+  --warn: 138 90 0;
+  --warn-tint: 245 233 200;
+  --danger: 163 42 42;
+  --danger-tint: 246 220 218;
 }
 
 .dark {
-  --color-accent: 129 126 255;
-  --color-accent-hover: 150 148 255;
-  --color-accent-subtle: 40 39 74;
+  --paper: 22 20 15;
+  --page: 29 26 20;
+  --sunken: 18 16 12;
+  --line: 46 42 33;
+  --line-strong: 72 65 50;
 
-  --color-surface: 15 17 23;
-  --color-surface-raised: 22 24 32;
-  --color-surface-sunken: 10 12 17;
-  --color-border: 39 42 51;
+  --ink: 236 230 216;
+  --ink-muted: 178 170 152;
+  --ink-faint: 145 137 120;
 
-  --color-ink: 237 238 241;
-  --color-ink-muted: 165 170 181;
-  --color-ink-faint: 112 118 130;
+  --accent: 224 112 74;
+  --accent-hover: 236 136 100;
+  --accent-tint: 58 34 24;
+  --accent-fg: 26 17 8;
+
+  --ok: 122 190 137;
+  --ok-tint: 28 44 32;
+  --warn: 224 178 84;
+  --warn-tint: 52 42 20;
+  --danger: 235 128 120;
+  --danger-tint: 58 30 28;
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   html {
     color-scheme: light;
+    -webkit-text-size-adjust: 100%;
   }
   html.dark {
     color-scheme: dark;
   }
   body {
-    @apply bg-surface-sunken text-ink font-sans antialiased;
+    @apply bg-paper font-sans text-base text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss03';
   }
-  h1,
-  h2,
-  h3 {
-    @apply font-semibold tracking-tight text-ink;
+  ::selection {
+    background: rgb(var(--accent) / 0.25);
   }
-  /* Visible, high-contrast focus rings everywhere, keyboard-only by default. */
+  /* One focus treatment everywhere: a 2px accent ring, keyboard-only. */
   :focus-visible {
-    outline: 2px solid rgb(var(--color-accent));
+    outline: 2px solid rgb(var(--accent));
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 2px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  /* Buttons: hairline border, 4px radius, 32px tall. One primary per view. */
+  .btn {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded border border-line-strong bg-page px-3 text-sm font-medium text-ink transition-colors duration-150;
+  }
+  .btn:hover:not(:disabled) {
+    @apply border-ink-faint bg-sunken;
+  }
+  .btn:disabled {
+    @apply opacity-50;
+  }
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-fg;
+  }
+  .btn-primary:hover:not(:disabled) {
+    @apply border-accent-hover bg-accent-hover;
+  }
+  .btn-quiet {
+    @apply border-transparent bg-transparent text-ink-muted;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    @apply border-transparent bg-sunken text-ink;
+  }
+  .btn-sm {
+    @apply h-7 px-2 text-xs;
+  }
+
+  /* Inline text actions inside the document (Deep Dive, Research, ...). */
+  .link-action {
+    @apply -mx-1 rounded-sm px-1 text-xs font-medium text-ink-muted underline decoration-line-strong decoration-1 underline-offset-4 transition-colors duration-150;
+  }
+  .link-action:hover:not(:disabled) {
+    @apply text-accent decoration-accent;
+  }
+  .link-action[aria-pressed='true'],
+  .link-action[data-active='true'] {
+    @apply text-accent decoration-accent;
+  }
+  .link-action:disabled {
+    @apply opacity-40;
+  }
+
+  .field {
+    @apply w-full rounded border border-line-strong bg-page px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint;
+  }
+  .field:hover {
+    @apply border-ink-faint;
+  }
+  .field:focus {
+    @apply border-accent;
+  }
+  .field[aria-invalid='true'] {
+    @apply border-danger;
+  }
+
+  /* Small all-caps mono label used for section names and metadata. */
+  .label {
+    @apply font-mono text-2xs uppercase text-ink-faint;
+  }
+
+  /* Click-to-edit text: looks like text, reveals a dashed underline on hover. */
+  .editable {
+    @apply block w-full cursor-text rounded-sm border-0 bg-transparent p-0 text-left decoration-line-strong decoration-dashed underline-offset-4;
+  }
+  .editable:hover {
+    @apply underline;
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
   }
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+}
+
+/* Motion is short and purposeful; switch it off for people who ask. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

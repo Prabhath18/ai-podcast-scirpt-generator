@@ -1,166 +1,20 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { api } from '../services/api.js';
-import { getDemoOutline } from '../services/demoData.js';
 import { segmentContentKey } from '../utils/segmentSnapshot.js';
-import { OUTLINE_LIMITS } from './constants.js';
+import { sumDurations } from '../utils/durationMath.js';
+import { useToast } from './useToast.jsx';
+import { STORAGE_KEY, loadInitialState, reducer } from './workspaceReducer.js';
 
-const STORAGE_KEY = 'podcast-workspace-v1';
-
-const DEFAULT_FORM = {
-  topic: '',
-  tone: 'Conversational',
-  customTone: '',
-  podcastName: '',
-  hostCount: 'solo',
-  lengthMins: 30,
-  includeGuests: false,
-  guestNames: '',
-  guestBio: '',
-};
-
-function loadInitialState() {
-  const fallback = { form: DEFAULT_FORM, outline: null, deepDive: {}, activeProjectId: null, shareToken: null };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return {
-      form: { ...DEFAULT_FORM, ...parsed.form },
-      outline: parsed.outline ?? null,
-      deepDive: parsed.deepDive ?? {},
-      activeProjectId: parsed.activeProjectId ?? null,
-      shareToken: parsed.shareToken ?? null,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'SET_FORM_FIELD':
-      return { ...state, form: { ...state.form, [action.field]: action.value } };
-
-    case 'SET_OUTLINE':
-      return { ...state, outline: action.outline, deepDive: {}, activeProjectId: null, shareToken: null };
-
-    case 'LOAD_DEMO': {
-      const demo = getDemoOutline(action.id);
-      return {
-        ...state,
-        outline: demo.outline,
-        deepDive: {},
-        activeProjectId: null,
-        shareToken: null,
-        form: {
-          ...state.form,
-          topic: demo.outline.episode_title,
-          tone: demo.outline.tone,
-          lengthMins: demo.outline.total_duration_mins,
-        },
-      };
-    }
-
-    case 'LOAD_PROJECT':
-      return {
-        ...state,
-        outline: action.project.outline,
-        deepDive: {},
-        activeProjectId: action.project.id,
-        shareToken: action.project.shareToken ?? null,
-        form: {
-          ...state.form,
-          topic: action.project.outline.episode_title,
-          tone: action.project.outline.tone,
-          lengthMins: action.project.outline.total_duration_mins,
-        },
-      };
-
-    case 'SET_ACTIVE_PROJECT':
-      return { ...state, activeProjectId: action.id, shareToken: action.shareToken ?? state.shareToken };
-
-    case 'SET_SHARE_TOKEN':
-      return { ...state, shareToken: action.token };
-
-    case 'UPDATE_OUTLINE_FIELD':
-      if (!state.outline) return state;
-      return { ...state, outline: { ...state.outline, [action.field]: action.value } };
-
-    case 'UPDATE_SEGMENT': {
-      if (!state.outline) return state;
-      const segments = state.outline.segments.map((s) => (s.id === action.id ? { ...s, ...action.patch } : s));
-      return { ...state, outline: { ...state.outline, segments } };
-    }
-
-    case 'UPDATE_TALKING_POINT': {
-      if (!state.outline) return state;
-      const segments = state.outline.segments.map((s) => {
-        if (s.id !== action.segmentId) return s;
-        const talking_points = s.talking_points.map((p, i) => (i === action.index ? action.value : p));
-        return { ...s, talking_points };
-      });
-      return { ...state, outline: { ...state.outline, segments } };
-    }
-
-    case 'ADD_TALKING_POINT': {
-      if (!state.outline) return state;
-      const segments = state.outline.segments.map((s) => {
-        if (s.id !== action.segmentId) return s;
-        if (s.talking_points.length >= OUTLINE_LIMITS.MAX_TALKING_POINTS) return s;
-        return { ...s, talking_points: [...s.talking_points, ''] };
-      });
-      return { ...state, outline: { ...state.outline, segments } };
-    }
-
-    case 'REMOVE_TALKING_POINT': {
-      if (!state.outline) return state;
-      const segments = state.outline.segments.map((s) => {
-        if (s.id !== action.segmentId) return s;
-        if (s.talking_points.length <= OUTLINE_LIMITS.MIN_TALKING_POINTS) return s;
-        return { ...s, talking_points: s.talking_points.filter((_, i) => i !== action.index) };
-      });
-      return { ...state, outline: { ...state.outline, segments } };
-    }
-
-    case 'UPDATE_GUEST_QUESTION': {
-      if (!state.outline) return state;
-      const guest_questions = state.outline.guest_questions.map((q, i) => (i === action.index ? action.value : q));
-      return { ...state, outline: { ...state.outline, guest_questions } };
-    }
-
-    case 'ADD_GUEST_QUESTION':
-      if (!state.outline) return state;
-      return { ...state, outline: { ...state.outline, guest_questions: [...state.outline.guest_questions, ''] } };
-
-    case 'REMOVE_GUEST_QUESTION': {
-      if (!state.outline) return state;
-      const guest_questions = state.outline.guest_questions.filter((_, i) => i !== action.index);
-      return { ...state, outline: { ...state.outline, guest_questions } };
-    }
-
-    case 'SET_GUEST_QUESTIONS':
-      if (!state.outline) return state;
-      return { ...state, outline: { ...state.outline, guest_questions: action.questions } };
-
-    case 'SET_DEEP_DIVE':
-      return {
-        ...state,
-        deepDive: {
-          ...state.deepDive,
-          [action.segmentId]: { snapshot: action.snapshot, data: action.data },
-        },
-      };
-
-    case 'RESET':
-      return { form: DEFAULT_FORM, outline: null, deepDive: {}, activeProjectId: null, shareToken: null };
-
-    default:
-      return state;
-  }
-}
-
+/**
+ * The single source of truth for the episode being edited: the brief (form),
+ * the outline, cached Deep Dives, and save/share state. Every edit goes
+ * through the reducer in workspaceReducer.js and the whole state is mirrored
+ * to localStorage, so a refresh or a logged-out session never loses work.
+ */
 export function useOutlineWorkspace() {
-  const [state, dispatch] = useReducer(reducer, undefined, loadInitialState);
+  const [state, dispatch] = useReducer(reducer, undefined, () => loadInitialState());
+  const toast = useToast();
+  const { outline } = state;
 
   useEffect(() => {
     try {
@@ -172,11 +26,25 @@ export function useOutlineWorkspace() {
 
   const resolvedTone = state.form.tone === 'Other' ? state.form.customTone.trim() : state.form.tone;
 
-  const setFormField = useCallback((field, value) => dispatch({ type: 'SET_FORM_FIELD', field, value }), []);
+  const send = useCallback((type, payload) => dispatch({ type, ...payload }), []);
 
+  /** Runs a destructive edit and offers to take it back from the toast. */
+  const withUndo = useCallback(
+    (message, action) => {
+      const before = outline;
+      dispatch(action);
+      toast.show(message, {
+        durationMs: 7000,
+        action: { label: 'Undo', onClick: () => dispatch({ type: 'RESTORE_OUTLINE', outline: before }) },
+      });
+    },
+    [outline, toast],
+  );
+
+  /** Calls the API for one outline, or for 2-3 variations when the form asks for them. Returns { skipped }. */
   const generate = useCallback(async () => {
     const { form } = state;
-    const outline = await api.post('/api/generate-outline', {
+    const brief = {
       topic: form.topic.trim(),
       tone: resolvedTone,
       podcastName: form.podcastName.trim() || undefined,
@@ -185,37 +53,18 @@ export function useOutlineWorkspace() {
       includeGuests: form.includeGuests,
       guestNames: form.includeGuests ? form.guestNames.trim() : undefined,
       guestBio: form.includeGuests ? form.guestBio.trim() : undefined,
-    });
-    dispatch({ type: 'SET_OUTLINE', outline: outline.outline });
-    return outline.outline;
+    };
+
+    if (form.variationCount >= 2) {
+      const result = await api.post('/api/generate-variations', { ...brief, count: Number(form.variationCount) });
+      dispatch({ type: 'SET_VARIATIONS', variations: result.variations });
+      return { skipped: result.skipped, variations: result.variations.length };
+    }
+    const result = await api.post('/api/generate-outline', brief);
+    dispatch({ type: 'SET_OUTLINE', outline: result.outline });
+    return { skipped: 0, variations: 0 };
   }, [state, resolvedTone]);
 
-  const loadDemo = useCallback((id) => dispatch({ type: 'LOAD_DEMO', id }), []);
-  const loadProject = useCallback((project) => dispatch({ type: 'LOAD_PROJECT', project }), []);
-  const setActiveProject = useCallback((id, shareToken) => dispatch({ type: 'SET_ACTIVE_PROJECT', id, shareToken }), []);
-  const setShareToken = useCallback((token) => dispatch({ type: 'SET_SHARE_TOKEN', token }), []);
-
-  const updateOutlineField = useCallback((field, value) => dispatch({ type: 'UPDATE_OUTLINE_FIELD', field, value }), []);
-  const updateSegment = useCallback((id, patch) => dispatch({ type: 'UPDATE_SEGMENT', id, patch }), []);
-  const updateTalkingPoint = useCallback(
-    (segmentId, index, value) => dispatch({ type: 'UPDATE_TALKING_POINT', segmentId, index, value }),
-    [],
-  );
-  const addTalkingPoint = useCallback((segmentId) => dispatch({ type: 'ADD_TALKING_POINT', segmentId }), []);
-  const removeTalkingPoint = useCallback(
-    (segmentId, index) => dispatch({ type: 'REMOVE_TALKING_POINT', segmentId, index }),
-    [],
-  );
-
-  const updateGuestQuestion = useCallback((index, value) => dispatch({ type: 'UPDATE_GUEST_QUESTION', index, value }), []);
-  const addGuestQuestion = useCallback(() => dispatch({ type: 'ADD_GUEST_QUESTION' }), []);
-  const removeGuestQuestion = useCallback((index) => dispatch({ type: 'REMOVE_GUEST_QUESTION', index }), []);
-  const setGuestQuestions = useCallback((questions) => dispatch({ type: 'SET_GUEST_QUESTIONS', questions }), []);
-
-  const setDeepDive = useCallback((segmentId, snapshot, data) => dispatch({ type: 'SET_DEEP_DIVE', segmentId, snapshot, data }), []);
-  const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
-
-  /** Returns { data, stale } | null for a segment's cached Deep Dive. */
   const getDeepDive = useCallback(
     (segment) => {
       const entry = state.deepDive[segment.id];
@@ -225,35 +74,84 @@ export function useOutlineWorkspace() {
     [state.deepDive],
   );
 
-  const totalDurationLive = useMemo(
-    () => (state.outline?.segments || []).reduce((sum, s) => sum + (Number(s.duration_mins) || 0), 0),
-    [state.outline],
+  const totalDurationLive = useMemo(() => sumDurations(outline?.segments), [outline]);
+  const dirty = useMemo(() => Boolean(outline) && state.savedJson !== JSON.stringify(outline), [outline, state.savedJson]);
+
+  const actions = useMemo(
+    () => ({
+      setFormField: (field, value) => send('SET_FORM_FIELD', { field, value }),
+      loadDemo: (id) => send('LOAD_DEMO', { id }),
+      loadProject: (project) => send('LOAD_PROJECT', { project }),
+      setActiveProject: (id, shareToken) => send('SET_ACTIVE_PROJECT', { id, shareToken }),
+      setShareToken: (token) => send('SET_SHARE_TOKEN', { token }),
+      setCommentsEnabled: (enabled) => send('SET_COMMENTS_ENABLED', { enabled }),
+      markSaved: (savedAt = new Date().toISOString()) => send('MARK_SAVED', { savedAt }),
+
+      updateOutlineField: (field, value) => send('UPDATE_OUTLINE_FIELD', { field, value }),
+      updateSegment: (id, patch) => send('UPDATE_SEGMENT', { id, patch }),
+      reorderSegments: (fromId, toId) => send('REORDER_SEGMENTS', { fromId, toId }),
+      updateTalkingPoint: (segmentId, index, value) => send('UPDATE_TALKING_POINT', { segmentId, index, value }),
+      addTalkingPoint: (segmentId) => send('ADD_TALKING_POINT', { segmentId }),
+
+      updateGuestQuestion: (index, value) => send('UPDATE_GUEST_QUESTION', { index, value }),
+      addGuestQuestion: () => send('ADD_GUEST_QUESTION'),
+      setGuestQuestions: (questions) => send('SET_GUEST_QUESTIONS', { questions }),
+
+      setDeepDive: (segmentId, snapshot, data) => send('SET_DEEP_DIVE', { segmentId, snapshot, data }),
+
+      pinSource: (segmentId, source) => send('PIN_SOURCE', { segmentId, source }),
+
+      setIntroOutro: (data) => send('SET_INTRO_OUTRO', { data }),
+      updateIntroOutro: (patch) => send('UPDATE_INTRO_OUTRO', { patch }),
+      updateHook: (index, text) => send('UPDATE_HOOK', { index, text }),
+      updateOutroOption: (index, text) => send('UPDATE_OUTRO_OPTION', { index, text }),
+
+      addLocalComment: (comment) => send('ADD_LOCAL_COMMENT', { comment }),
+      resolveLocalComment: (id, resolved) => send('RESOLVE_LOCAL_COMMENT', { id, resolved }),
+      deleteLocalComment: (id) => send('DELETE_LOCAL_COMMENT', { id }),
+
+      reset: () => send('RESET'),
+    }),
+    [send],
+  );
+
+  // Anything that removes or overwrites content goes through withUndo, so the toast can take it back.
+  const undoable = useMemo(
+    () => ({
+      withUndo,
+      chooseVariation: (index, approach) => withUndo(`“${approach}” is now your working outline.`, { type: 'USE_VARIATION', index }),
+      blendSegment: (variationIndex, segmentId, mode, targetId, approach) =>
+        withUndo(mode === 'add' ? `Added a segment from “${approach}”.` : `Replaced a segment with one from “${approach}”.`, {
+          type: 'BLEND_SEGMENT',
+          variationIndex,
+          segmentId,
+          mode,
+          targetId,
+        }),
+      discardVariations: () => withUndo('Alternative structures discarded.', { type: 'CLEAR_VARIATIONS' }),
+      removeSegment: (segment) => withUndo(`Removed “${segment.title}”.`, { type: 'REMOVE_SEGMENT', id: segment.id }),
+      removeTalkingPoint: (segmentId, index) => withUndo('Removed a talking point.', { type: 'REMOVE_TALKING_POINT', segmentId, index }),
+      removeGuestQuestion: (index) => withUndo('Removed a guest question.', { type: 'REMOVE_GUEST_QUESTION', index }),
+      unpinSource: (segmentId, source) => withUndo('Unpinned a source.', { type: 'UNPIN_SOURCE', segmentId, url: source.url }),
+    }),
+    [withUndo],
   );
 
   return {
     form: state.form,
     resolvedTone,
-    outline: state.outline,
+    outline,
     activeProjectId: state.activeProjectId,
     shareToken: state.shareToken,
+    commentsEnabled: state.commentsEnabled,
+    savedAt: state.savedAt,
+    demoId: state.demoId,
+    localComments: state.localComments,
     totalDurationLive,
-    setFormField,
+    dirty,
     generate,
-    loadDemo,
-    loadProject,
-    setActiveProject,
-    setShareToken,
-    updateOutlineField,
-    updateSegment,
-    updateTalkingPoint,
-    addTalkingPoint,
-    removeTalkingPoint,
-    updateGuestQuestion,
-    addGuestQuestion,
-    removeGuestQuestion,
-    setGuestQuestions,
     getDeepDive,
-    setDeepDive,
-    reset,
+    ...actions,
+    ...undoable,
   };
 }

@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import Modal from './Modal.jsx';
-import FormField, { inputClasses } from './FormField.jsx';
+import FormField, { Segmented } from './FormField.jsx';
 import Spinner from './Spinner.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { ApiError } from '../services/api.js';
 
+const MODES = [
+  { value: 'login', label: 'Log in' },
+  { value: 'signup', label: 'Create account' },
+];
+
 export default function AuthModal({ onClose, onSuccess }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -16,7 +21,7 @@ export default function AuthModal({ onClose, onSuccess }) {
   const validate = () => {
     const next = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = 'Enter a valid email address.';
-    if (password.length < 8) next.password = 'Password must be at least 8 characters.';
+    if (password.length < 8) next.password = 'Use at least 8 characters.';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -30,11 +35,7 @@ export default function AuthModal({ onClose, onSuccess }) {
       const user = mode === 'login' ? await login(email.trim(), password) : await signup(email.trim(), password);
       onSuccess(user);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setErrors({ form: err.message });
-      } else {
-        setErrors({ form: 'Something went wrong. Please try again.' });
-      }
+      setErrors({ form: err instanceof ApiError ? err.message : 'Something went wrong. Try again in a moment.' });
     } finally {
       setLoading(false);
     }
@@ -42,64 +43,28 @@ export default function AuthModal({ onClose, onSuccess }) {
 
   return (
     <Modal title={mode === 'login' ? 'Log in' : 'Create an account'} onClose={onClose}>
-      <div className="flex rounded-lg border border-border p-1 bg-surface-sunken mb-5">
-        {['login', 'signup'].map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              mode === m ? 'bg-surface-raised text-ink shadow-card' : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            {m === 'login' ? 'Log in' : 'Sign up'}
-          </button>
-        ))}
+      <p className="mb-4 text-sm text-ink-muted">An account lets you save projects, share them, and comment. Everything else works without one.</p>
+      <div className="mb-5">
+        <Segmented label="Log in or create an account" options={MODES} value={mode} onChange={setMode} />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <FormField id="auth-email" label="Email" required error={errors.email}>
-          <input
-            id="auth-email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClasses}
-            aria-invalid={Boolean(errors.email)}
-          />
+          <input id="auth-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="field" aria-invalid={Boolean(errors.email)} data-autofocus />
         </FormField>
 
-        <FormField
-          id="auth-password"
-          label="Password"
-          required
-          error={errors.password}
-          hint={mode === 'signup' ? 'At least 8 characters.' : undefined}
-        >
-          <input
-            id="auth-password"
-            type="password"
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClasses}
-            aria-invalid={Boolean(errors.password)}
-          />
+        <FormField id="auth-password" label="Password" required error={errors.password} hint={mode === 'signup' ? 'At least 8 characters.' : undefined}>
+          <input id="auth-password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} className="field" aria-invalid={Boolean(errors.password)} />
         </FormField>
 
         {errors.form && (
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+          <p className="text-sm text-danger" role="alert">
             {errors.form}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-medium py-2.5 transition-colors"
-        >
-          {loading && <Spinner className="w-4 h-4 text-white" label="Submitting" />}
+        <button type="submit" disabled={loading} className="btn btn-primary h-9 w-full">
+          {loading && <Spinner className="h-3.5 w-3.5" label="Submitting" />}
           {mode === 'login' ? 'Log in' : 'Create account'}
         </button>
       </form>

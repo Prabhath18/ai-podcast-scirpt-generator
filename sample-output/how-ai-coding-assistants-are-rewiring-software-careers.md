@@ -2,10 +2,13 @@
 
 **Tone:** Educational  **Total length:** 45 mins
 
+> AI writes the first draft now. What is left for you?
+
 ## Intro
 Six months ago, writing a function meant typing every line yourself. Today, a growing share of developers describe their code as co-written with an AI. In the next 45 minutes, we're breaking down how these tools actually work, where they help, where they quietly hurt you, and what it means for anyone building a career in software right now.
 
 ## Segment 1: From Autocomplete to Autonomous Agents (6 mins)
+*00:00 - 06:00*
 
 - Trace the lineage: basic autocomplete, GitHub Copilot in 2021, chat-based assistants, and now agentic tools that can open files, run commands, and iterate on their own
 - Explain the core technique -- large language models trained on public code plus reinforcement learning from human coder feedback
@@ -15,6 +18,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 *Transition: That history explains what these tools ARE. Now let's talk about what they're actually good at.*
 
 ## Segment 2: Where They Genuinely Save Time (8 mins)
+*06:00 - 14:00*
 
 - Boilerplate and glue code: API clients, config files, test scaffolding -- the tedious 20% that rarely needs creativity
 - Reading unfamiliar codebases faster by asking the assistant to summarize a module before diving in
@@ -24,6 +28,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 *Transition: Those are real wins. But there's a flip side that doesn't get talked about enough.*
 
 ## Segment 3: The Hidden Costs: Skill Atrophy and Silent Bugs (8 mins)
+*14:00 - 22:00*
 
 - Junior developers who lean on AI for logic they don't understand yet, and what that does to debugging skills a year later
 - Confidently wrong code: assistants that produce plausible-looking but subtly incorrect logic, especially around edge cases and concurrency
@@ -33,6 +38,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 *Transition: So how should a working developer actually use these tools without falling into those traps?*
 
 ## Segment 4: A Practical Framework for Using AI Assistants Well (8 mins)
+*22:00 - 30:00*
 
 - Rule of thumb: use AI to go from zero to a draft, never to skip understanding the draft you ship
 - Always ask the assistant to explain its own reasoning before accepting a nontrivial change
@@ -42,6 +48,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 *Transition: That's the individual-developer view. Zoom out, and this is reshaping entire teams and hiring pipelines.*
 
 ## Segment 5: What This Means for Hiring and Team Structure (8 mins)
+*30:00 - 38:00*
 
 - Interview formats shifting away from pure algorithm puzzles toward code review and debugging exercises
 - Smaller teams shipping more -- what a 4-person startup can now build that used to need 12 people
@@ -51,6 +58,7 @@ Six months ago, writing a function meant typing every line yourself. Today, a gr
 *Transition: Let's bring this back to something concrete: what should a developer listening right now actually do this month?*
 
 ## Segment 6: Your Move: Building an AI-Complementary Skill Set (7 mins)
+*38:00 - 45:00*
 
 - Double down on the things AI is still bad at: system design, cross-team communication, judgment calls under ambiguity
 - Practice writing precise, specific prompts as a skill in itself -- vague prompts produce vague code

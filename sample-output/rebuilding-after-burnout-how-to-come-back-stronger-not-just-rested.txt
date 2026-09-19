@@ -2,6 +2,7 @@ REBUILDING AFTER BURNOUT: HOW TO COME BACK STRONGER, NOT JUST RESTED
 ====================================================================
 
 Tone: Motivational   Total length: 35 mins
+Teaser: Come back stronger, not just rested.
 
 INTRO
 -----
@@ -9,6 +10,7 @@ If you've ever hit a point where even opening your laptop felt physically heavy,
 
 SEGMENT 1: NAMING IT: WHAT BURNOUT ACTUALLY IS  [6 mins]
 --------------------------------------------------------
+  00:00 - 06:00
   * Distinguish burnout from ordinary tiredness: chronic exhaustion, cynicism, and a collapse in your sense of effectiveness
   * Why burnout often shows up as irritability and numbness before it shows up as visible exhaustion
   * The trap of pushing through, since burnout responds to rest the way a broken bone responds to a jog
@@ -17,6 +19,7 @@ SEGMENT 1: NAMING IT: WHAT BURNOUT ACTUALLY IS  [6 mins]
 
 SEGMENT 2: THE SLOW SLIDE: HOW BURNOUT ACTUALLY BUILDS  [7 mins]
 ----------------------------------------------------------------
+  06:00 - 13:00
   * The gap between how much you're giving and how much control you feel you have over your own work
   * Chronic small overcommitments that each felt reasonable in isolation
   * The identity trap of tying your entire sense of worth to output and achievement
@@ -26,6 +29,7 @@ SEGMENT 2: THE SLOW SLIDE: HOW BURNOUT ACTUALLY BUILDS  [7 mins]
 
 SEGMENT 3: WHY 'JUST TAKE A VACATION' DOESN'T WORK  [8 mins]
 ------------------------------------------------------------
+  13:00 - 21:00
   * A week off addresses fatigue, not the underlying mismatch between demands and control that caused it
   * The rebound effect: many people return from a break and burn out again within months because nothing structural changed
   * What actually needs to change: boundaries, workload, or the story you tell yourself about your own worth
@@ -35,6 +39,7 @@ SEGMENT 3: WHY 'JUST TAKE A VACATION' DOESN'T WORK  [8 mins]
 
 SEGMENT 4: A REAL COMEBACK: FROM BURNED OUT TO REBUILT  [7 mins]
 ----------------------------------------------------------------
+  21:00 - 28:00
   * Walk through the guest's lowest point and the specific moment they realized something had to change
   * The concrete first step they took, and why it was smaller than most people would expect
   * What their support system looked like during the hardest stretch, and who they leaned on
@@ -44,6 +49,7 @@ SEGMENT 4: A REAL COMEBACK: FROM BURNED OUT TO REBUILT  [7 mins]
 
 SEGMENT 5: YOUR FIRST THREE MOVES THIS WEEK  [7 mins]
 -----------------------------------------------------
+  28:00 - 35:00
   * Move one: identify a single non-negotiable boundary you can set in the next 48 hours
   * Move two: tell one person the truth about how you're actually doing, not the polished version
   * Move three: schedule one hour that has no productive purpose at all, and protect it like a meeting

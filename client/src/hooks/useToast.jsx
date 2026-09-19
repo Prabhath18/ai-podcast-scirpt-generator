@@ -1,8 +1,12 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 const ToastContext = createContext(null);
 let nextId = 1;
 
+/**
+ * Toasts are short status messages. One can carry a single action, which is
+ * how "Undo" works after a delete: { action: { label, onClick } }.
+ */
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
@@ -11,25 +15,28 @@ export function ToastProvider({ children }) {
   }, []);
 
   const push = useCallback(
-    (message, { type = 'info', durationMs = 4000 } = {}) => {
+    (message, { type = 'info', durationMs = 4500, action } = {}) => {
       const id = nextId++;
-      setToasts((current) => [...current, { id, message, type }]);
-      if (durationMs > 0) {
-        setTimeout(() => dismiss(id), durationMs);
-      }
+      setToasts((current) => [...current.slice(-3), { id, message, type, action }]);
+      if (durationMs > 0) setTimeout(() => dismiss(id), durationMs);
       return id;
     },
     [dismiss],
   );
 
-  const toast = {
-    show: push,
-    success: (message, opts) => push(message, { ...opts, type: 'success' }),
-    error: (message, opts) => push(message, { ...opts, type: 'error' }),
-    info: (message, opts) => push(message, { ...opts, type: 'info' }),
-  };
+  const toast = useMemo(
+    () => ({
+      show: push,
+      success: (message, opts) => push(message, { ...opts, type: 'success' }),
+      error: (message, opts) => push(message, { durationMs: 7000, ...opts, type: 'error' }),
+      info: (message, opts) => push(message, { ...opts, type: 'info' }),
+      warn: (message, opts) => push(message, { durationMs: 7000, ...opts, type: 'warn' }),
+    }),
+    [push],
+  );
 
-  return <ToastContext.Provider value={{ toasts, toast, dismiss }}>{children}</ToastContext.Provider>;
+  const value = useMemo(() => ({ toasts, toast, dismiss }), [toasts, toast, dismiss]);
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
 
 export function useToast() {
