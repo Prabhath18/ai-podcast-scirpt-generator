@@ -8,7 +8,7 @@ This maps each feature to the files that implement it, how to verify it, and its
 
 ## How this was verified
 
-Run `npm install && npm test`. The suites pass: 253 server tests and 137 client tests. `npm run lint` (zero warnings allowed) and `npm run build` are clean, and `npm run check:contrast` confirms every color pair meets WCAG AA in both themes.
+Run `npm install && npm test`. The suites pass: 253 server tests and 156 client tests. `npm run lint` (zero warnings allowed) and `npm run build` are clean, and `npm run check:contrast` confirms every color pair meets WCAG AA in both themes.
 
 - **Server tests** (`server/tests/`) use Vitest and Supertest against an in-memory SQLite database created per test. The LLM module (`services/llm.js`) and `fetch` are mocked, so no test calls Gemini, Wikipedia or NewsAPI. They exercise the real routes, validators, retry logic, permission checks and migrations.
 - **Client tests** (`client/src/tests/`) cover the pure logic (duration normalization, blending, the workspace reducer, export formatting, relative time) in Node, and the session and landing behavior as component tests in jsdom with Testing Library against a fake API (`logout.test.jsx`, `landing.test.jsx`, `generation.test.jsx`, `printExport.test.jsx`). Other components are not unit tested.
@@ -53,6 +53,7 @@ Run `npm install && npm test`. The suites pass: 253 server tests and 137 client 
 | Design system: tokens, type scale, radii, motion, dark theme | `client/src/index.css`, `client/tailwind.config.js`, `DESIGN.md` | `npm run check:contrast`; toggle the theme | Done, tested and run |
 | Keyboard: shortcuts, arrow-key tabs and segmented controls, keyboard reorder, focus trap and return | `hooks/useHotkeys.js`, `Modal.jsx`, `Tabs.jsx`, `FormField.jsx`, `OutlineDocument.jsx` | Press `?` in the app; the browser runs checked focus in and out of the phone sheet | Done, run by hand only |
 | Responsive at 375, 768, 1024, 1440; no horizontal scroll on phones | `WorkspacePage.jsx`, `SharedPage.jsx`, `SidePanel.jsx` | `npm run screenshots`; the browser run asserts no horizontal scroll at 375 | Done, run by hand only |
+| + New Podcast: header button (also in My episodes and on the shared page); blank brief with focus in Topic; confirmation (Cancel / Discard & Create New) only when the outline has unsaved edits; saved projects never deleted or overwritten; nothing from the old podcast (outline, structures, hooks, Deep Dives, comments, in-flight answers) reaches the new one; opening a saved episode over unsaved edits asks the same way | `Header.jsx`, `ConfirmDialog.jsx`, `ProjectsList.jsx`, `pages/WorkspacePage.jsx`, `pages/SharedPage.jsx`, `useOutlineWorkspace.js` (`hasUnsavedChanges`, `trackPodcast`), `workspaceReducer.js` (`NEW_PODCAST`) | `newPodcast.test.jsx` (19 tests); by hand in a browser with a demo | Done, tested |
 | Print view as a production script | `PrintPreview.jsx`, `utils/exportFormatter.js` | Export Script, then PDF / Print, then Print / Save as PDF | Done, tested and run (PDF text and page breaks checked; nothing printed on paper) |
 | Favicon, page title, wordmark | `client/public/favicon.svg`, `client/index.html`, `Wordmark.jsx` | Look at the browser tab | Done, run by hand only |
 

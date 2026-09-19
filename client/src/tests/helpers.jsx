@@ -31,6 +31,8 @@ export const draftJson = () => JSON.stringify(reducer(EMPTY_STATE, { type: 'LOAD
 /** A generate-outline step that succeeds with a specific outline. */
 export const respondWith = (outline) => () => reply(201, { outline });
 
+export const jsonReply = (status, body) => reply(status, body);
+
 export const failWith = (status, code, error = 'Something failed.') => () => reply(status, { error, code });
 
 const reply = (status, body) =>
@@ -46,9 +48,9 @@ const reply = (status, body) =>
  * /me answer is withheld until `calls.releaseMe()`, to simulate a slow response.
  * `generate` controls POST /api/generate-outline: 'ok' (default), 'hold' (until
  * `calls.releaseGenerate()`), a function returning a Response (custom failure), or an
- * array of those used one per call. `projects` is what GET /api/projects returns.
+ * array of those used one per call. `projects` is what GET /api/projects returns. `handlers` adds or overrides routes.
  */
-export function mockApi({ signedIn = false, holdMe = false, generate = 'ok', projects = [] } = {}) {
+export function mockApi({ signedIn = false, holdMe = false, generate = 'ok', projects = [], handlers = {} } = {}) {
   const calls = [];
   let releaseMe;
   let releaseGenerate;
@@ -78,6 +80,8 @@ export function mockApi({ signedIn = false, holdMe = false, generate = 'ok', pro
           return typeof step === 'function' ? step() : reply(201, { outline: OUTLINE });
         }
         default:
+          // Routes a test adds itself, keyed like the calls list ("POST /api/projects"); a function returns a Response.
+          if (handlers[key]) return handlers[key](init);
           return reply(404, { error: `Not mocked: ${key}`, code: 'NOT_FOUND' });
       }
     }),

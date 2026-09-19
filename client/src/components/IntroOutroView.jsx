@@ -22,11 +22,12 @@ function SectionHead({ title, note }) {
 
 /** Hooks, the full intro script, outros and a teaser, generated in one call and editable in place. */
 export default function IntroOutroView({ workspace }) {
-  const { outline, form, resolvedTone, updateIntroOutro, updateHook, updateOutroOption, withUndo } = workspace;
+  const { outline, form, resolvedTone, updateIntroOutro, updateHook, updateOutroOption, withUndo, trackPodcast } = workspace;
   const toast = useToast();
   const data = outline.intro_outro;
 
   const generate = async () => {
+    const isCurrent = trackPodcast();
     const result = await api.post('/api/intro-outro', {
       topic: form.topic.trim() || outline.episode_title,
       tone: resolvedTone || outline.tone,
@@ -35,13 +36,14 @@ export default function IntroOutroView({ workspace }) {
       lengthMins: Number(form.lengthMins) || outline.total_duration_mins,
       outline,
     });
-    return result.introOutro;
+    return isCurrent() ? result.introOutro : null; // null: another podcast is on screen now
   };
   const { run: runGenerate, loading } = useAsyncCallback(generate);
 
   const handleGenerate = async () => {
     try {
       const next = await runGenerate();
+      if (!next) return;
       // Regenerating replaces any edits, so it goes through Undo like a delete does.
       withUndo(data ? 'Hooks and outros regenerated.' : 'Hooks, intro and outros are ready.', { type: 'SET_INTRO_OUTRO', data: next });
     } catch (err) {

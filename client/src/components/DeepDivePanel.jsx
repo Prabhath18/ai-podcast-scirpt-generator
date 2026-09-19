@@ -13,7 +13,7 @@ import { segmentContentKey } from '../utils/segmentSnapshot.js';
  * `onRequestHandled` once acted on. Merely selecting a segment spends nothing.
  */
 export default function DeepDivePanel({ segment, workspace, requestId, onRequestHandled }) {
-  const { outline, form, getDeepDive, setDeepDive, activeProjectId } = workspace;
+  const { outline, form, getDeepDive, setDeepDive, activeProjectId, trackPodcast } = workspace;
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -23,6 +23,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
     async (target) => {
       setLoading(true);
       setErrorMsg(null);
+      const isCurrent = trackPodcast();
       try {
         const result = await api.post('/api/expand-segment', {
           topic: form.topic.trim() || outline.episode_title,
@@ -32,7 +33,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
           segment: target,
           projectId: activeProjectId || undefined,
         });
-        setDeepDive(target.id, segmentContentKey(target), result.deepDive);
+        if (isCurrent()) setDeepDive(target.id, segmentContentKey(target), result.deepDive);
       } catch (err) {
         setErrorMsg(
           err instanceof ApiError && err.code === 'LLM_NOT_CONFIGURED'
@@ -45,7 +46,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
         setLoading(false);
       }
     },
-    [form, outline, activeProjectId, setDeepDive],
+    [form, outline, activeProjectId, setDeepDive, trackPodcast],
   );
 
   // An explicit request writes notes if there are none yet. A stale entry is shown

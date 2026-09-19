@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import Modal from './Modal.jsx';
 import Spinner from './Spinner.jsx';
 import EmptyState from './EmptyState.jsx';
@@ -77,6 +78,16 @@ export default function ProjectsList({ onClose, onOpenProject, onCreate }) {
             </button>
           }
         />
+      )}
+
+      {projects && projects.length > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-ink-muted">Open an episode, or start a new one. Nothing here is changed by starting a new podcast.</p>
+          <button type="button" className="btn shrink-0" onClick={onCreate}>
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            New Podcast
+          </button>
+        </div>
       )}
 
       {projects && projects.length > 0 && (

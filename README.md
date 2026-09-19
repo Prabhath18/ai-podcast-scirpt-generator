@@ -32,6 +32,7 @@ A user describes an episode (topic, tone, length, hosts, optional guest). The se
 - **Guest Questions.** Generated, editable, regenerable.
 - **Comments.** Comment on the episode or a segment. Owners share a read-only link and choose whether signed-in visitors may comment. Owners can resolve or delete any comment; everyone can delete their own.
 - **Export Script.** One dialog with three formats. **Markdown** and **Plain text** download at once. **PDF / Print** opens a Print Preview of the finished script, drawn from your current edits, with a **Print / Save as PDF** button at the top that opens the browser's print dialog (choose *Save as PDF*). Guest questions and Deep Dive research notes can be switched off for the printout, and any section with nothing in it is left out. No PDF library is involved: the browser does the PDF.
+- **New Podcast.** **+ New Podcast** in the header (and in **My episodes**, and on a shared outline) starts a blank episode: the brief, outline, structures, hooks, Deep Dives and demo comments are all cleared and the cursor lands in Topic. If the current outline has edits that were never saved, it asks first (**Start a new podcast?** with **Cancel** and **Discard & Create New**); a saved and unchanged podcast, an unedited demo and an empty brief do not ask. Saved episodes are never deleted or overwritten; open them again from **My episodes**. Opening a saved episode over unsaved edits asks the same way.
 - **Accounts (optional).** Email and password, saved projects, share links. Everything except saving and comments works with no login, using `localStorage`.
 - **Demo mode.** Three bundled outlines, each with sample variations, sources, hooks and comments, so every feature can be shown with no API key and no network.
 
@@ -52,6 +53,8 @@ How the routes and the session fit together:
 
 - **Try a demo** on the landing page goes to `/app` with the bundled demo loaded. The hand-off uses router state that is cleared straight away, so refreshing `/app` keeps your edits instead of reloading the demo.
 - **Logging in or signing up** from the landing page goes to `/app`. From inside `/app` it stays put.
+- **+ New Podcast** stays on `/app` (there is no separate route: the editor shows the brief whenever there is no outline). From `/shared/:token` it goes to `/app` with one-time router state, like the demo hand-off. It resets only the working copy in this browser (the `podcast-workspace-v1` key is removed); nothing on the server changes. Answers to requests still in flight for the old podcast (a slow outline, Deep Dive, guest questions, intro/outro, save, or comment refresh) are dropped, so they cannot appear in the new one.
+- **Unsaved changes** means the outline differs from the last save or load (edits to segments, talking points, durations, order, guest questions, hooks and outros all count). There is no page-leave warning on refresh or close, because the draft is already kept in `localStorage`, so a refresh loses nothing; the confirmation appears only where work would actually be discarded.
 - **Logging out** removes the draft from `localStorage`, resets the workspace (outline, Deep Dives, guest questions, open project, share state), closes any open dialog or panel, and goes to `/` with `replace`, so Back does not return to the old outline. It does this even if the server cannot be reached. The theme and export preferences are settings, not user data, and are kept.
 - **An expired session** is detected when `/api/auth/me` answers 401 *and* this browser had a signed-in session (a small marker key, `podcast-session`, records that). Anonymous visitors get the same 401, so on its own it never clears a draft. An expiry clears the draft, shows a message and, from `/app`, returns to `/`.
 - **Several tabs stay in step** through the browser's `storage` event: signing out in one tab resets the others and sends them to `/`; signing in refreshes them.
@@ -315,7 +318,7 @@ All calls pass a response schema (`server/prompts/schemas.js`): Gemini enforces 
 
 ## Testing and verification
 
-`npm test` runs 390 tests: 253 on the server and 137 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
+`npm test` runs 409 tests: 253 on the server and 156 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
 
 **Server** (Vitest, Supertest, an in-memory SQLite database per test, LLM and `fetch` mocked): outline generation, validation and retry; variations (validator, partial-failure salvage, duplicate approaches, count limits); intro and outro (schema, speaker labels, retry); the research proxy (Wikipedia mapping, fallback query, empty results, upstream failure, caching, news on and off, key sent as a header); comment permissions for owner, commenter, outsider and comments-disabled; input limits and SQL metacharacters; schema migrations (upgrade from a version-0 database with data, idempotence, cascade); project persistence of the optional fields; auth, ownership and share tokens.
 

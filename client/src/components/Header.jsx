@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import Wordmark from './Wordmark.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import Timeline from './Timeline.jsx';
@@ -19,7 +20,7 @@ export function saveStatus({ hasOutline, isAuthenticated, activeProjectId, dirty
   return { text: savedAt ? `Saved ${relativeTime(savedAt)}` : 'Saved', tone: 'ok' };
 }
 
-export default function Header({ status, timeline, onOpenAuth, onOpenProjects, onOpenShortcuts, note }) {
+export default function Header({ status, timeline, onNewPodcast, onOpenAuth, onOpenProjects, onOpenShortcuts, note }) {
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const toast = useToast();
@@ -64,6 +65,12 @@ export default function Header({ status, timeline, onOpenAuth, onOpenProjects, o
 
           {/* Wide screens: actions inline. */}
           <div className="ml-2 hidden items-center gap-1 sm:flex">
+            {onNewPodcast && (
+              <button type="button" onClick={onNewPodcast} className="btn mr-1" title="Start a new podcast">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                New Podcast
+              </button>
+            )}
             {items.filter(Boolean).map((item) => (
               <button key={item.label} type="button" onClick={item.onClick} className={`btn ${item.primary ? 'btn-primary' : 'btn-quiet'}`}>
                 {item.label}
@@ -86,6 +93,18 @@ export default function Header({ status, timeline, onOpenAuth, onOpenProjects, o
             {menuOpen && (
               <div className="absolute right-0 top-full z-40 mt-1 w-52 animate-fade-in rounded-lg border border-line-strong bg-page py-1 shadow-float">
                 {status && <p className={`tabular px-3 py-2 font-mono text-2xs ${STATUS_TONE[status.tone]}`}>{status.text}</p>}
+                {onNewPodcast && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onNewPodcast();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm font-medium hover:bg-sunken"
+                  >
+                    + New Podcast
+                  </button>
+                )}
                 {items.filter(Boolean).map((item) => (
                   <button
                     key={item.label}

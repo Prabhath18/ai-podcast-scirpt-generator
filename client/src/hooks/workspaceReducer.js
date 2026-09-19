@@ -187,6 +187,7 @@ export function reducer(state, action) {
       return withOutline(state, () => ({ guest_questions: action.questions }));
 
     case 'SET_DEEP_DIVE':
+      if (!state.outline) return state; // a late answer for a podcast that has since been cleared
       return {
         ...state,
         deepDive: { ...state.deepDive, [action.segmentId]: { snapshot: action.snapshot, data: action.data } },
@@ -267,6 +268,14 @@ export function reducer(state, action) {
       return { ...state, localComments: state.localComments.filter((c) => c.id !== action.id) };
 
     case 'RESET':
+      return EMPTY_STATE;
+
+    /**
+     * Starts a completely blank podcast: the brief, outline, Deep Dives, comments and the
+     * link to any saved project are all dropped. Saved projects live on the server and
+     * are never touched; only the working copy in this browser is cleared.
+     */
+    case 'NEW_PODCAST':
       return EMPTY_STATE;
 
     default:

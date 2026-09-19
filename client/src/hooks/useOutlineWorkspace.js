@@ -4,7 +4,12 @@ import { segmentContentKey } from '../utils/segmentSnapshot.js';
 import { sumDurations } from '../utils/durationMath.js';
 import { useToast } from './useToast.jsx';
 import { useAuth } from './useAuth.jsx';
+import { getDemo } from '../services/demoData.js';
 import { EMPTY_STATE, STORAGE_KEY, loadInitialState, reducer } from './workspaceReducer.js';
+
+// Actions that replace the whole working podcast. Answers to requests made for the
+// podcast that was on screen before one of these must not be written into the new one.
+const REPLACES_PODCAST = new Set(['NEW_PODCAST', 'LOAD_PROJECT', 'LOAD_DEMO', 'RESET']);
 
 /**
  * The single source of truth for the episode being edited: the brief (form),
@@ -19,6 +24,7 @@ export function useOutlineWorkspace() {
   const toast = useToast();
   const { sessionEpoch } = useAuth();
   const { outline } = state;
+  const podcastEpoch = useRef(0);
 
   useEffect(() => {
     try {
@@ -36,12 +42,26 @@ export function useOutlineWorkspace() {
   useEffect(() => {
     if (seenEpoch.current === sessionEpoch) return;
     seenEpoch.current = sessionEpoch;
+    podcastEpoch.current += 1;
     dispatch({ type: 'RESET' });
   }, [sessionEpoch]);
 
   const resolvedTone = state.form.tone === 'Other' ? state.form.customTone.trim() : state.form.tone;
 
-  const send = useCallback((type, payload) => dispatch({ type, ...payload }), []);
+  const send = useCallback((type, payload) => {
+    if (REPLACES_PODCAST.has(type)) podcastEpoch.current += 1;
+    dispatch({ type, ...payload });
+  }, []);
+
+  /**
+   * Call before starting a request that will write into the podcast on screen. The function it
+   * returns says whether that podcast is still the one being worked on when the answer arrives,
+   * so a slow reply for Podcast A is dropped instead of landing in a new Podcast B.
+   */
+  const trackPodcast = useCallback(() => {
+    const started = podcastEpoch.current;
+    return () => podcastEpoch.current === started;
+  }, []);
 
   /** Runs a destructive edit and offers to take it back from the toast. */
   const withUndo = useCallback(
@@ -56,9 +76,14 @@ export function useOutlineWorkspace() {
     [outline, toast],
   );
 
-  /** Calls the API for one outline, or for 2-3 variations when the form asks for them. Returns { skipped }. */
+  /**
+   * Calls the API for one outline, or for 2-3 variations when the form asks for them. Returns
+   * { skipped }, or { superseded: true } (nothing written) if the user started or opened another
+   * podcast while the model was working.
+   */
   const generate = useCallback(async () => {
     const { form } = state;
+    const isCurrent = trackPodcast();
     const brief = {
       topic: form.topic.trim(),
       tone: resolvedTone,
@@ -72,13 +97,15 @@ export function useOutlineWorkspace() {
 
     if (form.variationCount >= 2) {
       const result = await api.post('/api/generate-variations', { ...brief, count: Number(form.variationCount) });
+      if (!isCurrent()) return { superseded: true };
       dispatch({ type: 'SET_VARIATIONS', variations: result.variations });
       return { skipped: result.skipped, variations: result.variations.length };
     }
     const result = await api.post('/api/generate-outline', brief);
+    if (!isCurrent()) return { superseded: true };
     dispatch({ type: 'SET_OUTLINE', outline: result.outline });
     return { skipped: 0, variations: 0 };
-  }, [state, resolvedTone]);
+  }, [state, resolvedTone, trackPodcast]);
 
   const getDeepDive = useCallback(
     (segment) => {
@@ -91,6 +118,13 @@ export function useOutlineWorkspace() {
 
   const totalDurationLive = useMemo(() => sumDurations(outline?.segments), [outline]);
   const dirty = useMemo(() => Boolean(outline) && state.savedJson !== JSON.stringify(outline), [outline, state.savedJson]);
+  // Work worth confirming before it is set aside: the outline differs from what was saved or loaded.
+  // A bundled demo nobody has edited is not: it can be opened again from the brief at any time.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!dirty) return false;
+    const demo = state.demoId ? getDemo(state.demoId) : null;
+    return !(demo && JSON.stringify(demo.outline) === JSON.stringify(outline));
+  }, [dirty, outline, state.demoId]);
 
   const actions = useMemo(
     () => ({
@@ -100,6 +134,7 @@ export function useOutlineWorkspace() {
       setActiveProject: (id, shareToken) => send('SET_ACTIVE_PROJECT', { id, shareToken }),
       setShareToken: (token) => send('SET_SHARE_TOKEN', { token }),
       setCommentsEnabled: (enabled) => send('SET_COMMENTS_ENABLED', { enabled }),
+      newPodcast: () => send('NEW_PODCAST'),
       markSaved: (savedAt = new Date().toISOString()) => send('MARK_SAVED', { savedAt }),
 
       updateOutlineField: (field, value) => send('UPDATE_OUTLINE_FIELD', { field, value }),
@@ -164,6 +199,8 @@ export function useOutlineWorkspace() {
     localComments: state.localComments,
     totalDurationLive,
     dirty,
+    hasUnsavedChanges,
+    trackPodcast,
     generate,
     getDeepDive,
     ...actions,

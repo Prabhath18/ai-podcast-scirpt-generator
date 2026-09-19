@@ -29,6 +29,15 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
   const topicRef = useRef(null);
   const toast = useToast();
   const { run: runGenerate, loading } = useAsyncCallback(generate);
+  // "New Podcast" replaces this form (see the key in WorkspacePage). A generation still running for
+  // the old one must not announce itself, or report an error, on the new blank form.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const wantsFocus = useRef(false);
   useEffect(() => {
@@ -106,6 +115,7 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
     try {
       const requested = Number(form.variationCount);
       const result = await runGenerate();
+      if (result.superseded || !mounted.current) return;
       setCollapsed(true);
       if (requested >= 2) {
         if (result.skipped > 0) {
@@ -118,9 +128,9 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
       }
       onGenerated?.(result);
     } catch (err) {
-      setGenError(describeError(err));
+      if (mounted.current) setGenError(describeError(err));
     } finally {
-      onGeneratingChange?.(false);
+      if (mounted.current) onGeneratingChange?.(false);
     }
   };
 

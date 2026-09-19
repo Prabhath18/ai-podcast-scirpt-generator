@@ -15,6 +15,7 @@ import ShortcutsSheet from '../components/ShortcutsSheet.jsx';
 import AuthModal from '../components/AuthModal.jsx';
 import ProjectsList from '../components/ProjectsList.jsx';
 import Modal from '../components/Modal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import Spinner from '../components/Spinner.jsx';
 import GenerationProgress from '../components/GenerationProgress.jsx';
 import Tabs, { useTabIds } from '../components/Tabs.jsx';
@@ -26,6 +27,18 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { useToast } from '../hooks/useToast.jsx';
 import { api, ApiError } from '../services/api.js';
 
+const NEW_PODCAST_COPY = {
+  title: 'Start a new podcast?',
+  message: 'You have unsaved changes in this podcast. If you start a new podcast, those changes may be lost.',
+  confirmLabel: 'Discard & Create New',
+};
+
+const OPEN_PROJECT_COPY = {
+  title: 'Open another episode?',
+  message: 'You have unsaved changes in this podcast. If you open another episode, those changes may be lost.',
+  confirmLabel: 'Discard & Open',
+};
+
 const PANEL_TABS = [
   { id: 'deep', label: 'Deep Dive' },
   { id: 'research', label: 'Research' },
@@ -33,7 +46,7 @@ const PANEL_TABS = [
 
 export default function WorkspacePage() {
   const workspace = useOutlineWorkspace();
-  const { outline, form, activeProjectId, dirty, savedAt, demoId, setActiveProject, loadProject, loadDemo, markSaved, getDeepDive } = workspace;
+  const { outline, form, activeProjectId, dirty, hasUnsavedChanges, savedAt, demoId, setActiveProject, loadProject, loadDemo, newPodcast, trackPodcast, markSaved, getDeepDive } = workspace;
   const location = useLocation();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -50,7 +63,9 @@ export default function WorkspacePage() {
   const [panelFocus, setPanelFocus] = useState(0);
   const [deepDiveRequest, setDeepDiveRequest] = useState(0);
   const [briefFocus, setBriefFocus] = useState(0);
-  const [modal, setModal] = useState(null); // auth | projects | share | shortcuts | import
+  const [modal, setModal] = useState(null); // auth | projects | share | shortcuts | import | confirm
+  const [pending, setPending] = useState(null); // the action waiting on the "unsaved changes" dialog
+  const [formKey, setFormKey] = useState(0); // a new key gives the brief form a clean slate (errors, folded state)
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -88,6 +103,14 @@ export default function WorkspacePage() {
     loadDemo(requestedDemo);
     navigate(location.pathname, { replace: true, state: null });
   }, [requestedDemo]); // eslint-disable-line react-hooks/exhaustive-deps -- run once per landing hand-off
+
+  // "+ New Podcast" on the shared page arrives with { state: { newPodcast } }; handled like the demo hand-off.
+  const requestedNew = location.state?.newPodcast;
+  useEffect(() => {
+    if (!requestedNew) return;
+    navigate(location.pathname, { replace: true, state: null });
+    requestNewPodcast();
+  }, [requestedNew]); // eslint-disable-line react-hooks/exhaustive-deps -- run once per hand-off
 
   useEffect(() => {
     document.title = outline ? `${outline.episode_title} · Podcast Outline AI` : 'Podcast Outline AI';
@@ -127,11 +150,16 @@ export default function WorkspacePage() {
 
   // --- Saving and sharing ---------------------------------------------------
   const persistProject = async () => {
+    const isCurrent = trackPodcast();
     const data = activeProjectId
       ? await api.put(`/api/projects/${activeProjectId}`, { outline })
       : await api.post('/api/projects', { title: outline.episode_title, outline });
-    if (!activeProjectId) setActiveProject(data.project.id, data.project.shareToken);
-    markSaved(data.project.updatedAt);
+    // If a new podcast was started while this was saving, the project is saved on the server
+    // but must not be attached to the blank workspace that replaced it.
+    if (isCurrent()) {
+      if (!activeProjectId) setActiveProject(data.project.id, data.project.shareToken);
+      markSaved(data.project.updatedAt);
+    }
     return data.project.id;
   };
 
@@ -179,12 +207,57 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleOpenProject = (project) => {
-    loadProject(project);
+  // --- Setting the current podcast aside ------------------------------------
+  // Opening another project or starting a new podcast replaces what is on screen. When that
+  // would lose edits that were never saved, ask first; otherwise just do it.
+  const guardUnsaved = (copy, run, cancelTo = null) => {
+    if (!hasUnsavedChanges) {
+      run();
+      return;
+    }
+    setPending({ ...copy, run, cancelTo });
+    setModal('confirm');
+  };
+
+  const resetWorkspaceView = () => {
     setActiveSegmentId(null);
     setView('outline');
+    setPanelTab('deep');
+    setResearchScope('topic');
+    setCommentScope('episode');
+    setSheetOpen(false);
+    setDeepDiveRequest(0);
+    setGenerating(false);
+    setAnnouncement('');
+  };
+
+  const startNewPodcast = () => {
+    newPodcast();
+    resetWorkspaceView();
     setModal(null);
+    setPending(null);
+    setFormKey((n) => n + 1);
+    setBriefFocus((n) => n + 1); // puts the cursor in the Topic field
+    toast.success('New podcast started. Your saved episodes are unchanged.');
+  };
+
+  function requestNewPodcast(cancelTo = null) {
+    guardUnsaved(NEW_PODCAST_COPY, startNewPodcast, cancelTo);
+  }
+
+  const openProject = (project) => {
+    loadProject(project);
+    resetWorkspaceView();
+    setModal(null);
+    setPending(null);
     toast.success(`Opened “${project.title}”.`);
+  };
+
+  const handleOpenProject = (project) => guardUnsaved(OPEN_PROJECT_COPY, () => openProject(project), 'projects');
+
+  const cancelPending = () => {
+    setModal(pending?.cancelTo ?? null);
+    setPending(null);
   };
 
   const handleGenerated = (result) => {
@@ -270,6 +343,7 @@ export default function WorkspacePage() {
 
       <Header
         status={status}
+        onNewPodcast={() => requestNewPodcast()}
         timeline={outline && !generating ? { segments, activeId: activeSegmentId, onSelect: setActiveSegmentId } : null}
         onOpenAuth={() => setModal('auth')}
         onOpenProjects={() => setModal('projects')}
@@ -279,7 +353,7 @@ export default function WorkspacePage() {
       <main id="main" tabIndex={-1} className="mx-auto max-w-[1180px] px-4 pb-24 pt-6 outline-none sm:px-6">
         <div className={`grid grid-cols-1 gap-x-10 ${outline ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
           <div className={`min-w-0 max-w-[46rem] ${outline ? '' : 'mx-auto w-full'}`}>
-            <BriefForm workspace={workspace} hasOutline={Boolean(outline)} onGeneratingChange={setGenerating} onGenerated={handleGenerated} focusSignal={briefFocus} />
+            <BriefForm key={formKey} workspace={workspace} hasOutline={Boolean(outline)} onGeneratingChange={setGenerating} onGenerated={handleGenerated} focusSignal={briefFocus} />
 
             {generating && <GenerationProgress structures={Number(form.variationCount)} />}
 
@@ -337,10 +411,16 @@ export default function WorkspacePage() {
         <ProjectsList
           onClose={() => setModal(null)}
           onOpenProject={handleOpenProject}
-          onCreate={() => {
-            setModal(null);
-            editBrief();
-          }}
+          onCreate={() => requestNewPodcast('projects')}
+        />
+      )}
+      {modal === 'confirm' && pending && (
+        <ConfirmDialog
+          title={pending.title}
+          message={pending.message}
+          confirmLabel={pending.confirmLabel}
+          onCancel={cancelPending}
+          onConfirm={pending.run}
         />
       )}
       {modal === 'share' && <ShareDialog workspace={workspace} persistProject={persistProject} onClose={() => setModal(null)} />}

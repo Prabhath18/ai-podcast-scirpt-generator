@@ -5,10 +5,11 @@ import { useToast } from '../hooks/useToast.jsx';
 import { api, ApiError } from '../services/api.js';
 
 export default function GuestQuestions({ workspace, readOnly }) {
-  const { form, outline, updateGuestQuestion, addGuestQuestion, removeGuestQuestion, setGuestQuestions } = workspace;
+  const { form, outline, updateGuestQuestion, addGuestQuestion, removeGuestQuestion, setGuestQuestions, trackPodcast } = workspace;
   const toast = useToast();
 
   const regenerate = async () => {
+    const isCurrent = trackPodcast();
     const result = await api.post('/api/guest-questions', {
       topic: form.topic.trim() || outline.episode_title,
       tone: form.tone === 'Other' ? form.customTone : form.tone,
@@ -17,14 +18,15 @@ export default function GuestQuestions({ workspace, readOnly }) {
       guestBio: form.guestBio.trim(),
       outline,
     });
+    if (!isCurrent()) return false; // another podcast is on screen now
     setGuestQuestions(result.questions);
+    return true;
   };
   const { run: runRegenerate, loading } = useAsyncCallback(regenerate);
 
   const handleRegenerate = async () => {
     try {
-      await runRegenerate();
-      toast.success('Guest questions refreshed.');
+      if (await runRegenerate()) toast.success('Guest questions refreshed.');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Could not refresh the guest questions.', {
         action: { label: 'Try again', onClick: handleRegenerate },

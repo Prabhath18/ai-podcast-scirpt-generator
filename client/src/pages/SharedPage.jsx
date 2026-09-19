@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import OutlineDocument from '../components/OutlineDocument.jsx';
 import SidePanel, { PanelSheet } from '../components/SidePanel.jsx';
@@ -23,6 +23,7 @@ const TABS = [{ id: 'comments', label: 'Comments' }];
  */
 export default function SharedPage() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [shared, setShared] = useState(null);
@@ -131,6 +132,7 @@ export default function SharedPage() {
           </>
         }
         timeline={outline ? { segments, activeId: activeSegmentId, onSelect: setActiveSegmentId } : null}
+        onNewPodcast={() => navigate('/app', { state: { newPodcast: true } })}
         onOpenAuth={isAuthenticated ? null : () => setAuthOpen(true)}
       />
 

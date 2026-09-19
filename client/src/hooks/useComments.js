@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError } from '../services/api.js';
 import { nameFromEmail } from '../utils/relativeTime.js';
 
@@ -18,13 +18,17 @@ export function useComments({ mode, projectId, token, enabled = true, polling = 
   const path = mode === 'owner' ? `/api/projects/${projectId}/comments` : mode === 'shared' ? `/api/shared/${token}/comments` : null;
   const userId = user?.id ?? null;
   const [remote, setRemote] = useState({ comments: [], status: 'idle', message: null });
+  const currentPath = useRef(path);
+  currentPath.current = path;
 
   const refresh = useCallback(async () => {
     if (!path) return;
     try {
       const data = await api.get(path);
+      if (currentPath.current !== path) return; // the episode changed while this was in flight
       setRemote({ comments: data.comments, status: 'ready', message: null });
     } catch (err) {
+      if (currentPath.current !== path) return;
       const code = err instanceof ApiError ? err.code : null;
       const status = code === 'UNAUTHENTICATED' ? 'login' : code === 'COMMENTS_DISABLED' ? 'disabled' : 'error';
       setRemote((prev) => ({ comments: status === 'error' ? prev.comments : [], status, message: err.message }));
