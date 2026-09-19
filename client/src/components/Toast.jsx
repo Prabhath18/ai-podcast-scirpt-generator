@@ -34,7 +34,7 @@ export default function ToastViewport() {
             </button>
           )}
           <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss notification" className="px-2.5 text-ink-faint hover:text-ink">
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       ))}

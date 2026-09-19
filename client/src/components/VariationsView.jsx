@@ -48,7 +48,7 @@ function VariationColumn({ variation, index, isCurrent, workingSegments, onUse, 
                 aria-label={`Replace one of your segments with “${segment.title}”`}
                 value=""
                 onChange={(event) => event.target.value && onBlend(segment.id, 'replace', Number(event.target.value))}
-                className="max-w-[10rem] cursor-pointer rounded-sm border border-line-strong bg-page py-0.5 pl-1.5 pr-1 text-xs text-ink-muted hover:border-ink-faint"
+                className="field w-auto max-w-[10rem] cursor-pointer py-0.5 text-xs text-ink-muted"
               >
                 <option value="">Replace…</option>
                 {workingSegments.map((working, wi) => (

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { PanelSkeleton } from './Skeletons.jsx';
+import { Segmented } from './FormField.jsx';
 import { relativeTime } from '../utils/relativeTime.js';
 import { useToast } from '../hooks/useToast.jsx';
 import { ApiError } from '../services/api.js';
 
 const MAX_LENGTH = 1000;
 const FILTERS = [
-  ['open', 'Open'],
-  ['resolved', 'Resolved'],
-  ['all', 'All'],
+  { value: 'open', label: 'Open' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'all', label: 'All' },
 ];
 
 function Comment({ comment, segmentLabel, canResolve, canDelete, onResolve, onDelete }) {
@@ -24,7 +25,7 @@ function Comment({ comment, segmentLabel, canResolve, canDelete, onResolve, onDe
       {/* React escapes the text; whitespace-pre-wrap keeps the author's line breaks. */}
       <p className="mt-1 whitespace-pre-wrap break-words text-sm">{comment.body}</p>
       <div className="mt-1.5 flex items-center gap-4">
-        {comment.resolved && <span className="font-mono text-2xs uppercase text-ok">Resolved</span>}
+        {comment.resolved && <span className="badge badge-ok">Resolved</span>}
         {canResolve && (
           <button type="button" className="link-action" onClick={onResolve}>
             {comment.resolved ? 'Reopen' : 'Resolve'}
@@ -60,7 +61,7 @@ export default function CommentsPanel({ comments, segment, segments, scope, onSc
 
   if (unavailable === 'login') {
     return (
-      <div className="border border-dashed border-line-strong px-4 py-6">
+      <div className="card-muted px-4 py-6">
         <p className="font-serif text-lg font-semibold">Sign in to comment</p>
         <p className="mt-1 text-sm text-ink-muted">Comments belong to an account so everyone knows who said what.</p>
         <button type="button" className="btn btn-primary mt-4" onClick={onLogin}>Log in or sign up</button>
@@ -69,7 +70,7 @@ export default function CommentsPanel({ comments, segment, segments, scope, onSc
   }
   if (unavailable === 'unsaved') {
     return (
-      <div className="border border-dashed border-line-strong px-4 py-6">
+      <div className="card-muted px-4 py-6">
         <p className="font-serif text-lg font-semibold">Comments start once it is saved</p>
         <p className="mt-1 text-sm text-ink-muted">Save this outline to your account, then share it. Collaborators who sign in can comment on any segment from the link.</p>
       </div>
@@ -80,7 +81,7 @@ export default function CommentsPanel({ comments, segment, segments, scope, onSc
   }
   if (comments.status === 'login') {
     return (
-      <div className="border border-dashed border-line-strong px-4 py-6">
+      <div className="card-muted px-4 py-6">
         <p className="font-serif text-lg font-semibold">Sign in to comment</p>
         <p className="mt-1 text-sm text-ink-muted">Log in or sign up to read and write comments on this episode.</p>
         <button type="button" className="btn btn-primary mt-4" onClick={onLogin}>Log in or sign up</button>
@@ -90,7 +91,7 @@ export default function CommentsPanel({ comments, segment, segments, scope, onSc
   if (comments.status === 'loading') return <PanelSkeleton lines={5} />;
   if (comments.status === 'error') {
     return (
-      <div className="rounded-md border border-danger/40 bg-danger-tint p-3 text-sm text-danger" role="alert">
+      <div className="callout callout-danger" role="alert">
         <p>{comments.message || 'Could not load comments.'}</p>
         <button type="button" className="link-action mt-2 !text-danger" onClick={comments.refresh}>Try again</button>
       </div>
@@ -142,25 +143,18 @@ export default function CommentsPanel({ comments, segment, segments, scope, onSc
       {comments.mode === 'local' && <p className="mb-3 text-xs text-ink-faint">Sample comments. In a demo they live in this browser only.</p>}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div role="radiogroup" aria-label="Comment scope" className="inline-flex rounded border border-line-strong bg-sunken p-0.5 text-sm">
-          {[
-            ['segment', 'Segment', Boolean(segment)],
-            ['episode', 'Episode', true],
-            ['all', 'All', true],
-          ].map(([value, label, available]) => (
-            <button key={value} type="button" role="radio" aria-checked={scope === value} disabled={!available} onClick={() => onScopeChange(value)}
-              className={`rounded-sm px-2.5 py-0.5 disabled:opacity-40 ${scope === value ? 'bg-page font-medium text-ink shadow-[0_0_0_1px_rgb(var(--line-strong))]' : 'text-ink-muted hover:text-ink'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div role="radiogroup" aria-label="Show comments" className="flex gap-3 text-xs">
-          {FILTERS.map(([value, label]) => (
-            <button key={value} type="button" role="radio" aria-checked={filter === value} onClick={() => setFilter(value)} className={`link-action ${filter === value ? '' : 'no-underline'}`} data-active={filter === value}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Comment scope"
+          size="sm"
+          value={scope}
+          onChange={onScopeChange}
+          options={[
+            { value: 'segment', label: 'Segment', disabled: !segment },
+            { value: 'episode', label: 'Episode' },
+            { value: 'all', label: 'All' },
+          ]}
+        />
+        <Segmented label="Show comments" size="sm" value={filter} onChange={setFilter} options={FILTERS} />
       </div>
 
       {visible.length === 0 ? (

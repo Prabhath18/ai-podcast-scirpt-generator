@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Header, { saveStatus } from '../components/Header.jsx';
 import BriefForm from '../components/BriefForm.jsx';
 import OutlineDocument from '../components/OutlineDocument.jsx';
@@ -15,8 +16,8 @@ import AuthModal from '../components/AuthModal.jsx';
 import ProjectsList from '../components/ProjectsList.jsx';
 import Modal from '../components/Modal.jsx';
 import Spinner from '../components/Spinner.jsx';
+import GenerationProgress from '../components/GenerationProgress.jsx';
 import Tabs, { useTabIds } from '../components/Tabs.jsx';
-import { OutlineSkeleton } from '../components/Skeletons.jsx';
 import { useOutlineWorkspace } from '../hooks/useOutlineWorkspace.js';
 import { useComments, openCountsBySegment } from '../hooks/useComments.js';
 import { useHotkeys } from '../hooks/useHotkeys.js';
@@ -32,7 +33,9 @@ const PANEL_TABS = [
 
 export default function WorkspacePage() {
   const workspace = useOutlineWorkspace();
-  const { outline, form, activeProjectId, dirty, savedAt, demoId, setActiveProject, loadProject, markSaved } = workspace;
+  const { outline, form, activeProjectId, dirty, savedAt, demoId, setActiveProject, loadProject, loadDemo, markSaved } = workspace;
+  const location = useLocation();
+  const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const { isAuthenticated, user } = useAuth();
   const toast = useToast();
@@ -76,6 +79,15 @@ export default function WorkspacePage() {
   const panelTabs = [...PANEL_TABS, { id: 'comments', label: 'Comments', count: totalOpen }];
   const effectiveResearchScope = activeSegment ? researchScope : 'topic';
   const effectiveCommentScope = !activeSegment && commentScope === 'segment' ? 'episode' : commentScope;
+
+  // "Try a demo" on the landing page arrives with { state: { demo } }. Load it once, then
+  // drop the state so a refresh keeps the user's edits instead of reloading the demo.
+  const requestedDemo = location.state?.demo;
+  useEffect(() => {
+    if (!requestedDemo) return;
+    loadDemo(requestedDemo);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [requestedDemo]); // eslint-disable-line react-hooks/exhaustive-deps -- run once per landing hand-off
 
   useEffect(() => {
     document.title = outline ? `${outline.episode_title} · Podcast Outline AI` : 'Podcast Outline AI';
@@ -260,15 +272,7 @@ export default function WorkspacePage() {
           <div className={`min-w-0 max-w-[46rem] ${outline ? '' : 'mx-auto w-full'}`}>
             <BriefForm workspace={workspace} hasOutline={Boolean(outline)} onGeneratingChange={setGenerating} onGenerated={handleGenerated} focusSignal={briefFocus} />
 
-            {generating && (
-              <div className="mt-6" role="status">
-                <p className="mb-4 flex items-center gap-2 text-sm text-ink-muted">
-                  <Spinner className="h-3.5 w-3.5" label="Generating" />
-                  Writing the outline. This usually takes 10 to 20 seconds.
-                </p>
-                <OutlineSkeleton />
-              </div>
-            )}
+            {generating && <GenerationProgress structures={Number(form.variationCount)} />}
 
             {outline && !generating && (
               <div className="mt-6">
@@ -320,7 +324,16 @@ export default function WorkspacePage() {
       )}
 
       {modal === 'auth' && <AuthModal onClose={() => setModal(null)} onSuccess={handleAuthSuccess} />}
-      {modal === 'projects' && <ProjectsList onClose={() => setModal(null)} onOpenProject={handleOpenProject} />}
+      {modal === 'projects' && (
+        <ProjectsList
+          onClose={() => setModal(null)}
+          onOpenProject={handleOpenProject}
+          onCreate={() => {
+            setModal(null);
+            editBrief();
+          }}
+        />
+      )}
       {modal === 'share' && <ShareDialog workspace={workspace} persistProject={persistProject} onClose={() => setModal(null)} />}
       {modal === 'shortcuts' && <ShortcutsSheet onClose={() => setModal(null)} />}
       {modal === 'import' && (

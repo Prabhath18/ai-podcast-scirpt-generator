@@ -8,6 +8,10 @@ Plan a podcast episode as a document you can edit like a script: a timed outline
 |---|---|
 | ![Dark theme](docs/screenshots/outline-dark-desktop.png) | ![Phone, light](docs/screenshots/outline-light-mobile.png) ![Phone, dark](docs/screenshots/outline-dark-mobile.png) |
 
+The landing page: [light](docs/screenshots/landing-light-desktop.png) · [dark](docs/screenshots/landing-dark-desktop.png) · [phone](docs/screenshots/landing-light-mobile.png)
+
+Generation states: [generating](docs/screenshots/generating-light-desktop.png) · [inline error](docs/screenshots/generation-error-light-desktop.png) · [empty My episodes](docs/screenshots/my-episodes-empty-light-desktop.png)
+
 More screens: [variations](docs/screenshots/variations-light-desktop.png) · [research](docs/screenshots/research-light-desktop.png) · [comments](docs/screenshots/comments-dark-desktop.png) · [intro and outro](docs/screenshots/intro-outro-light-desktop.png) · [the brief](docs/screenshots/brief-light-desktop.png) · [print view](docs/screenshots/print-view.png)
 
 `REQUIREMENTS.md` maps each feature to the files that implement it and how to verify it. `DESIGN.md` documents the design system.
@@ -17,6 +21,7 @@ More screens: [variations](docs/screenshots/variations-light-desktop.png) · [re
 A user describes an episode (topic, tone, length, hosts, optional guest). The server calls Google Gemini to produce a structured outline: an intro, 5 to 8 segments (title, 3 to 5 talking points, duration, transition), guest questions, and an outro. The client renders it as a timeline and an editable document.
 
 - **Brief and outline.** Topic, five preset tones or a custom one, podcast name, host count, length, optional guest. Server-side schema validation with one automatic retry; durations always sum exactly to the requested length.
+- **Generation feedback.** While an outline is written, the New Episode screen shows a progress card (estimated bar, four steps, outline skeleton). If generation fails, an inline error explains why and offers **Retry Generation** or **Back to Edit Settings**. **My episodes** has its own empty state with **Create Your First Episode**.
 - **Editing.** Click any text to edit it (Enter saves, Escape discards). Drag segments to reorder, or use the keyboard. Durations, the timeline and the running clock update live. Removals offer Undo.
 - **Multiple outline variations.** Ask for 2 or 3 structures in one request (for example chronological story, problem and solution, myth-busting). Compare them side by side, use one as the working outline, or copy single segments across (add or replace) with durations re-normalized.
 - **Research and source suggestions.** Wikipedia results for a segment or the whole topic (no key needed), and optional recent news through NewsAPI. Pin sources to a segment and include them in the export as a "Sources" section.
@@ -31,6 +36,24 @@ A user describes an episode (topic, tone, length, hosts, optional guest). The se
 ## Keyboard shortcuts
 
 `/` edit the brief · `J` / `K` next or previous segment · `E` Deep Dive · `R` Research · `C` Comments · `Ctrl/Cmd+S` save · `?` list shortcuts · `Esc` close. Single-key shortcuts are off while typing in a field.
+
+## Routes
+
+| Path | Page | Notes |
+|---|---|---|
+| `/` | Landing page | Features, how it works, a sample outline. Signed-out visitors see Log in and Sign up (each opens the auth dialog) and **Get started**; signed-in visitors see **Open app** and Log out. |
+| `/app` | Workspace | The editor. Works with no account; the draft is kept in `localStorage` across refreshes. |
+| `/shared/:token` | Shared outline | Read-only view of a share link. Signed-in visitors can comment if the owner allows it. |
+| anything else | | Redirects to `/`. |
+
+How the routes and the session fit together:
+
+- **Try a demo** on the landing page goes to `/app` with the bundled demo loaded. The hand-off uses router state that is cleared straight away, so refreshing `/app` keeps your edits instead of reloading the demo.
+- **Logging in or signing up** from the landing page goes to `/app`. From inside `/app` it stays put.
+- **Logging out** removes the draft from `localStorage`, resets the workspace (outline, Deep Dives, guest questions, open project, share state), closes any open dialog or panel, and goes to `/` with `replace`, so Back does not return to the old outline. It does this even if the server cannot be reached. The theme and export preferences are settings, not user data, and are kept.
+- **An expired session** is detected when `/api/auth/me` answers 401 *and* this browser had a signed-in session (a small marker key, `podcast-session`, records that). Anonymous visitors get the same 401, so on its own it never clears a draft. An expiry clears the draft, shows a message and, from `/app`, returns to `/`.
+- **Several tabs stay in step** through the browser's `storage` event: signing out in one tab resets the others and sends them to `/`; signing in refreshes them.
+- **A slow first `/me` answer** is ignored if the user logged in or out while it was in flight, so a stale 401 cannot sign someone out right after they log in.
 
 ## Architecture
 
@@ -76,7 +99,7 @@ cp .env.example server/.env      # then edit server/.env: JWT_SECRET, and GEMINI
 npm run dev
 ```
 
-Open http://localhost:5173. Without a `GEMINI_API_KEY`, choose one of the demo outlines under the brief; the whole interface works from those.
+Open http://localhost:5173 for the landing page, or http://localhost:5173/app for the editor. Without a `GEMINI_API_KEY`, choose **Try a demo** on the landing page, or one of the demo outlines under the brief; the whole interface works from those.
 
 The repository folder may be named `ai-podcast-scirpt-generator` (a typo in the original name). It can be renamed at any time; nothing in the code depends on the folder name. The app, packages and page title are all "Podcast Outline AI".
 
@@ -216,13 +239,13 @@ All calls use Gemini's JSON mode with a response schema (`server/prompts/schemas
 
 ## Testing and verification
 
-`npm test` runs 198 tests: 126 on the server and 72 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
+`npm test` runs 234 tests: 128 on the server and 106 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
 
 **Server** (Vitest, Supertest, an in-memory SQLite database per test, LLM and `fetch` mocked): outline generation, validation and retry; variations (validator, partial-failure salvage, duplicate approaches, count limits); intro and outro (schema, speaker labels, retry); the research proxy (Wikipedia mapping, fallback query, empty results, upstream failure, caching, news on and off, key sent as a header); comment permissions for owner, commenter, outsider and comments-disabled; input limits and SQL metacharacters; schema migrations (upgrade from a version-0 database with data, idempotence, cascade); project persistence of the optional fields; auth, ownership and share tokens.
 
-**Client** (Vitest, no DOM): duration normalization, the running clock, blending (add, replace, limits, total preserved), the workspace reducer (reorder, remove limits, undo, pinning, hooks), export formatting (timings, sources, teaser, escaping, page-break rules), relative time.
+**Client** (Vitest): pure logic in Node (duration normalization, the running clock, blending, the workspace reducer, export formatting, relative time), and component tests in jsdom with Testing Library (`logout.test.jsx`, `landing.test.jsx`, `generation.test.jsx`). `generation.test.jsx` covers the progress card (title, bar, four steps in order, advancing over time, never reaching 100% early), the inline error (each known failure, Retry Generation re-sending the request, Back to Edit Settings, focus, no toast), and the My episodes empty state with and without saved episodes. The component tests mount the real providers and routes against a fake API and cover: logging out after generating an outline leaves the state, `localStorage` and route (`/`) empty, and replaces the history entry; logout with the server unreachable; an expired session clearing the draft while an anonymous 401 keeps it; a slow `/me` answer not undoing a login; sign-in and sign-out in another tab; the landing page for signed-out and signed-in visitors, its landmarks, headings and demo hand-off; and unknown URLs redirecting to `/`.
 
-**Also run by hand against the running app** (Chrome driven by Playwright, `scripts/screenshots.mjs` and ad-hoc scripts): 37 checks on inline editing, keyboard reorder, undo, shortcuts, local comments, pinning and export with and without sources, using and blending variations, choosing hooks and outros, save prompts, and the phone sheet (focus in, Escape, focus back, no horizontal scroll); and a 20-check two-user flow (owner saves and shares, visitor signs up and comments, owner resolves, comments switched off, sharing stopped). That an email address is never returned in comment data is asserted by a server test, not by the browser run. These scripts are not part of the repository.
+**Also run by hand against the running app** (Chrome driven by Playwright, `scripts/screenshots.mjs` and ad-hoc scripts): 37 checks on inline editing, keyboard reorder, undo, shortcuts, local comments, pinning and export with and without sources, using and blending variations, choosing hooks and outros, save prompts, and the phone sheet (focus in, Escape, focus back, no horizontal scroll); , a 18-check logout flow (draft survives a refresh, log out from `/app`, storage cleared, Back does not show the old outline, a second tab is sent to `/`, the next visit is an empty brief), and a 20-check two-user flow (owner saves and shares, visitor signs up and comments, owner resolves, comments switched off, sharing stopped). That an email address is never returned in comment data is asserted by a server test, not by the browser run. These scripts are not part of the repository.
 
 **Live model.** The variations and intro/outro prompts were each run once against the real Gemini API (variations: two distinct structures with durations summing to 30; intro/outro for a duo: five hooks in five styles, `Host 1:` and `Host 2:` turns, three outros, a teaser).
 
@@ -232,12 +255,14 @@ All calls use Gemini's JSON mode with a response schema (`server/prompts/schemas
 
 - **SQLite persistence.** On hosts with an ephemeral filesystem, `server/data/podcast.sqlite`, with every account, project and comment, is lost on restart. Use a persistent volume (see Deployment).
 - **In-memory caches.** Anonymous Deep Dive, guest-question and research results live in the Node process and reset on restart or across instances.
-- **Per-process rate limiting.** `express-rate-limit` uses its in-memory store, so limits are per instance unless you add a shared store.
+- **Per-process rate limiting.** `express-rate-limit` uses its in-memory store, so limits are per instance unless you add a shared store. The strict login limiter (10 per 15 minutes per IP) covers only login and signup; `/me` and logout use the general limit.
 - **No email verification or password reset.**
+- **Session marker.** Knowing that "this browser was signed in" lives in `localStorage`, so clearing site data by hand also forgets it; after that a truly expired session looks like an anonymous visit and the stale draft is kept. If the logout request cannot reach the server, this device still forgets the user, but the session cookie remains until it expires.
 - **Comments.** The thread is visible to the owner and to every signed-in visitor holding the link, not only to each author. Comments cannot be edited, only deleted. There are no notifications; new comments appear when the panel is opened or on the next 30-second poll. Comments on a segment that is later removed stay in the database and show under "All" as "Removed segment". Demo comments live in the browser only.
 - **Research.** Search text comes from the segment title and topic, with no LLM keyword step. Wikipedia is English only. NewsAPI's free tier works only from localhost and is limited daily.
 - **Intro and outro.** "Regenerate all" rewrites the whole set (hooks, script, outros, teaser) in one request; single items cannot be regenerated individually.
 - **Variations.** Three are kept at most. Using one replaces the title, intro, segments, guest questions and outro of the working outline (with Undo); the stored alternatives and the intro/outro set are kept. A replaced segment gets a new id, so its old Deep Dive does not carry over.
+- **Progress steps are estimates.** Generation is one API request with no stage reporting, so the four steps in the progress card advance on a timer and the bar levels off below 100% until the response arrives. They do not reflect what the model is actually doing.
 - **Free-tier model limits.** Variations and intro/outro use one request each on purpose. The LLM endpoints share a limit of 12 requests per minute per IP.
 - **Model pinning.** `GEMINI_MODEL` defaults to `gemini-3.6-flash`. If Google retires it, set the variable; no code change is needed unless the SDK's call shape changes.
 - **Accessibility** has not been audited with assistive technology (see "Not verified").
@@ -247,7 +272,7 @@ All calls use Gemini's JSON mode with a response schema (`server/prompts/schemas
 A typical split deployment: static client on Vercel, API on Railway or Render.
 
 1. **API.** Deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `GEMINI_API_KEY`, `JWT_SECRET`, `NODE_ENV=production` and `CORS_ORIGIN=https://your-frontend-domain`. Attach a persistent volume and point `DATABASE_PATH` inside it. Optionally set `NEWS_API_KEY` (see the note above about free-tier limits).
-2. **Client.** Deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL` to the API's origin.
+2. **Client.** Deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL` to the API's origin. The app uses client-side routes (`/app`, `/shared/:token`), so the host must serve `index.html` for any path or a refresh on those URLs returns a 404. `client/vercel.json` does this for Vercel (`{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`; real files such as `/assets/*` are still served first). On Netlify use a `_redirects` file containing `/* /index.html 200`; on Nginx, `try_files $uri /index.html;`. `npm run dev` and `vite preview` already fall back to `index.html`.
 3. **Cookies and CORS.** With the client and API on different domains, the session cookie must be `Secure; SameSite=None`, which the server does when `NODE_ENV=production`, and CORS must list the exact client origin with credentials. If login appears to succeed but `/api/auth/me` never sees the cookie, check both variables.
 4. Run `npm run build` locally first to catch build problems before deploying.
 

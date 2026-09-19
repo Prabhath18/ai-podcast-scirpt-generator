@@ -16,20 +16,26 @@ export default function FormField({ id, label, error, hint, required, children }
   );
 }
 
-/** Segmented single-choice control built from real radio semantics (arrow keys move the choice). */
-export function Segmented({ label, options, value, onChange }) {
-  const move = (event, index) => {
+/**
+ * The one "pick one" control: a row of choice chips with radio semantics (arrow keys move
+ * the choice and skip disabled options). Used for tone-like choices, hosts, structures,
+ * and the scope and filter toggles in the side panel. `options` is [{ value, label, disabled? }].
+ */
+export function Segmented({ label, options, value, onChange, size = 'md' }) {
+  const enabled = options.filter((o) => !o.disabled);
+  const move = (event) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
     if (!step) return;
     event.preventDefault();
-    const next = options[(index + step + options.length) % options.length];
+    const at = enabled.findIndex((o) => o.value === value);
+    const next = enabled[(at + step + enabled.length) % enabled.length];
     onChange(next.value);
     event.currentTarget.parentElement.querySelector(`[data-value="${next.value}"]`)?.focus();
   };
 
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded border border-line-strong bg-sunken p-0.5">
-      {options.map((option, index) => {
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+      {options.map((option) => {
         const selected = option.value === value;
         return (
           <button
@@ -38,12 +44,11 @@ export function Segmented({ label, options, value, onChange }) {
             role="radio"
             data-value={option.value}
             aria-checked={selected}
+            disabled={option.disabled}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
-            onKeyDown={(event) => move(event, index)}
-            className={`rounded-sm px-3 py-1 text-sm font-medium transition-colors duration-150 ${
-              selected ? 'bg-page text-ink shadow-[0_0_0_1px_rgb(var(--line-strong))]' : 'text-ink-muted hover:text-ink'
-            }`}
+            onKeyDown={move}
+            className={`choice ${size === 'sm' ? 'choice-sm' : ''}`}
           >
             {option.label}
           </button>

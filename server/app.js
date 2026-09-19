@@ -6,7 +6,7 @@ import { projectsRouter } from './routes/projects.js';
 import { sharedRouter } from './routes/shared.js';
 import { outlineRouter } from './routes/outline.js';
 import { researchRouter } from './routes/research.js';
-import { generalLimiter, authLimiter } from './middleware/rateLimiter.js';
+import { generalLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 /**
@@ -42,7 +42,7 @@ export function createApp(db) {
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-  app.use('/api/auth', authLimiter, authRouter);
+  app.use('/api/auth', authRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/shared', sharedRouter);
   app.use('/api/research', researchRouter);

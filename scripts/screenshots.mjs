@@ -33,9 +33,13 @@ const demoLabel = 'Tech: AI Coding Assistants';
 
 /** Screens. Each one gets a page that is already on the app and prepares its own state. */
 const SCREENS = {
-  brief: async (page) => page.goto(BASE),
-  outline: async (page) => {
+  landing: async (page) => {
     await page.goto(BASE);
+    await page.getByRole('heading', { level: 1 }).waitFor();
+  },
+  brief: async (page) => page.goto(`${BASE}/app`),
+  outline: async (page) => {
+    await page.goto(`${BASE}/app`);
     await page.getByRole('button', { name: demoLabel }).click();
     await page.locator('#segment-1').waitFor();
   },
@@ -58,6 +62,37 @@ const SCREENS = {
     await SCREENS.outline(page);
     await page.locator('#segment-3').getByRole('button', { name: /^Comments/ }).click();
     await page.getByText('Sample comments').waitFor();
+  },
+  // Generation states: the API request is intercepted, so no model call is made.
+  progress: async (page) => {
+    await page.route('**/api/generate-outline', () => {}); // never answers
+    await page.goto(`${BASE}/app`);
+    await page.getByLabel(/Topic/).fill('How lighthouses were automated');
+    await page.getByRole('button', { name: 'Generate outline' }).click();
+    await page.getByRole('region', { name: 'Generating Outline' }).waitFor();
+    await page.waitForTimeout(4800); // into the second step
+  },
+  error: async (page) => {
+    await page.route('**/api/generate-outline', (route) =>
+      route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'x', code: 'LLM_INVALID_RESPONSE' }) }),
+    );
+    await page.goto(`${BASE}/app`);
+    await page.getByLabel(/Topic/).fill('How lighthouses were automated');
+    await page.getByRole('button', { name: 'Generate outline' }).click();
+    await page.getByRole('alert').waitFor();
+  },
+  // Signs up a fresh account, so it belongs to docs mode only (the login limiter counts signups).
+  episodes: async (page) => {
+    await page.goto(`${BASE}/app`);
+    await page.getByRole('button', { name: demoLabel }).click();
+    await page.keyboard.press('Control+s');
+    await page.getByRole('radio', { name: 'Create account' }).click();
+    await page.getByLabel('Email').fill(`docs${Date.now()}@example.com`);
+    await page.getByLabel('Password').fill('password123');
+    await page.getByRole('button', { name: 'Create account' }).last().click();
+    await page.getByRole('button', { name: 'Not now' }).click();
+    await page.getByRole('button', { name: 'My episodes' }).click();
+    await page.getByText('No episodes drafted yet').waitFor();
   },
   shortcuts: async (page) => {
     await SCREENS.outline(page);
@@ -112,14 +147,21 @@ if (mode === 'docs') {
   await shoot(browser, { screen: 'comments', size: 'desktop', theme: 'dark', file: path.join(out, 'comments-dark-desktop.png') });
   await shoot(browser, { screen: 'intro', size: 'desktop', theme: 'light', file: path.join(out, 'intro-outro-light-desktop.png') });
   await shoot(browser, { screen: 'brief', size: 'desktop', theme: 'light', file: path.join(out, 'brief-light-desktop.png') });
+  await shoot(browser, { screen: 'progress', size: 'desktop', theme: 'light', file: path.join(out, 'generating-light-desktop.png') });
+  await shoot(browser, { screen: 'error', size: 'desktop', theme: 'light', file: path.join(out, 'generation-error-light-desktop.png') });
+  await shoot(browser, { screen: 'episodes', size: 'desktop', theme: 'light', file: path.join(out, 'my-episodes-empty-light-desktop.png') });
+  for (const theme of ['light', 'dark']) {
+    await shoot(browser, { screen: 'landing', size: 'desktop', theme, file: path.join(out, `landing-${theme}-desktop.png`), fullPage: true });
+    await shoot(browser, { screen: 'landing', size: 'mobile', theme, file: path.join(out, `landing-${theme}-mobile.png`), fullPage: true });
+  }
   await printPreview(browser, out);
 } else {
   const out = path.resolve(folder || 'review');
   fs.mkdirSync(out, { recursive: true });
   for (const theme of ['light', 'dark']) {
     for (const size of Object.keys(WIDTHS)) {
-      for (const screen of Object.keys(SCREENS)) {
-        await shoot(browser, { screen, size, theme, file: path.join(out, `${screen}-${theme}-${size}.png`), fullPage: screen === 'outline' });
+      for (const screen of Object.keys(SCREENS).filter((name) => name !== 'episodes')) {
+        await shoot(browser, { screen, size, theme, file: path.join(out, `${screen}-${theme}-${size}.png`), fullPage: screen === 'outline' || screen === 'landing' });
       }
     }
   }

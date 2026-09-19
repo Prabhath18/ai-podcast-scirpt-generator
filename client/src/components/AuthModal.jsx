@@ -10,8 +10,8 @@ const MODES = [
   { value: 'signup', label: 'Create account' },
 ];
 
-export default function AuthModal({ onClose, onSuccess }) {
-  const [mode, setMode] = useState('login');
+export default function AuthModal({ onClose, onSuccess, initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode); // 'login' | 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});

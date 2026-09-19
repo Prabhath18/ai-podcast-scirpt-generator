@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ToneSelector from './ToneSelector.jsx';
 import FormField, { Segmented } from './FormField.jsx';
 import Spinner from './Spinner.jsx';
+import GenerationError from './GenerationError.jsx';
 import { HOST_COUNTS } from '../hooks/constants.js';
 import { demoOutlines } from '../services/demoData.js';
 import { useAsyncCallback } from '../hooks/useAsyncCallback.js';
@@ -24,6 +25,7 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
   const { form, resolvedTone, setFormField, generate, loadDemo } = workspace;
   const [collapsed, setCollapsed] = useState(hasOutline);
   const [errors, setErrors] = useState({});
+  const [genError, setGenError] = useState(null);
   const topicRef = useRef(null);
   const toast = useToast();
   const { run: runGenerate, loading } = useAsyncCallback(generate);
@@ -54,26 +56,43 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
     return Object.keys(next).length === 0;
   };
 
-  const reportError = (err, retry) => {
-    if (err instanceof ApiError && err.code === 'LLM_NOT_CONFIGURED') {
-      toast.error('The server has no Gemini API key, so it cannot generate. Add GEMINI_API_KEY to server/.env, or start from a demo.', {
-        action: { label: 'Open a demo', onClick: () => loadDemo(demoOutlines[0].id) },
-      });
-    } else if (err instanceof ApiError && err.code === 'VALIDATION_ERROR') {
-      toast.error(err.details?.[0]?.message || 'Check the brief and try again.');
-    } else if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-      toast.error('That was a lot of requests in a short time. Wait a minute, then try again.');
-    } else if (err instanceof ApiError && err.code === 'LLM_INVALID_RESPONSE') {
-      toast.error("The model's answer didn't pass validation, even after a retry. Try again, or narrow the topic.", {
-        action: { label: 'Try again', onClick: retry },
-      });
-    } else {
-      toast.error(err instanceof ApiError ? err.message : 'Something went wrong generating the outline.', { action: { label: 'Try again', onClick: retry } });
+  // Turns a failed generation into the wording for the inline error card.
+  const describeError = (err) => {
+    const code = err instanceof ApiError ? err.code : null;
+    if (code === 'LLM_NOT_CONFIGURED') {
+      return {
+        title: "Generation isn't set up yet",
+        message: "The server has no Gemini API key, so it can't write outlines. Add GEMINI_API_KEY to server/.env, or explore with a demo.",
+        withDemo: true,
+      };
     }
+    if (code === 'VALIDATION_ERROR') {
+      return { title: 'Check the brief', message: err.details?.[0]?.message || 'Something in the brief was not accepted. Adjust it and try again.' };
+    }
+    if (code === 'RATE_LIMITED') {
+      return { title: 'Too many requests', message: 'That was a lot of requests in a short time. Wait a minute, then retry.' };
+    }
+    if (code === 'LLM_INVALID_RESPONSE') {
+      return { title: "The outline didn't pass checks", message: "The model's answer failed validation, even after an automatic retry. Retrying usually works; a narrower topic can help." };
+    }
+    if (code === 'NETWORK_ERROR') {
+      return { title: "Can't reach the server", message: 'Check your connection and that the API is running, then retry.' };
+    }
+    return { title: 'Generation failed', message: err instanceof ApiError ? err.message : 'Something went wrong while generating the outline.' };
+  };
+
+  const backToSettings = () => {
+    setGenError(null);
+    setCollapsed(false);
+    requestAnimationFrame(() => {
+      topicRef.current?.focus();
+      topicRef.current?.scrollIntoView?.({ block: 'center' });
+    });
   };
 
   const submit = async () => {
     if (!validate()) return;
+    setGenError(null);
     onGeneratingChange?.(true);
     try {
       const requested = Number(form.variationCount);
@@ -90,7 +109,7 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
       }
       onGenerated?.(result);
     } catch (err) {
-      reportError(err, submit);
+      setGenError(describeError(err));
     } finally {
       onGeneratingChange?.(false);
     }
@@ -216,6 +235,22 @@ export default function BriefForm({ workspace, hasOutline, onGeneratingChange, o
           </p>
         </div>
       </form>
+
+      {genError && (
+        <GenerationError
+          title={genError.title}
+          message={genError.message}
+          onRetry={submit}
+          onBack={backToSettings}
+          extra={
+            genError.withDemo && (
+              <button type="button" className="link-action" onClick={() => { setGenError(null); loadDemo(demoOutlines[0].id); setCollapsed(true); onGenerated?.({ variations: 0 }); }}>
+                Open a demo
+              </button>
+            )
+          }
+        />
+      )}
     </section>
   );
 }

@@ -96,7 +96,7 @@ export default function IntroOutroView({ workspace }) {
                 <EditableText multiline value={hook.text} label={`${hook.style} hook`} placeholder="Write a hook" onCommit={(text) => updateHook(index, text)} />
               </div>
               {inUseHook(hook) ? (
-                <p className="self-start pt-1 font-mono text-2xs uppercase text-ok">In use</p>
+                <p className="self-start pt-1"><span className="badge badge-ok">In use</span></p>
               ) : (
                 <button type="button" className="link-action self-start pt-1" aria-label={`Use the ${hook.style} hook`} onClick={() => withUndo(`${hook.style} hook is now your intro.`, { type: 'USE_HOOK', index })}>
                   Use this
@@ -124,7 +124,7 @@ export default function IntroOutroView({ workspace }) {
                 <EditableText multiline value={text} label={`outro option ${index + 1}`} placeholder="Write an outro" onCommit={(value) => updateOutroOption(index, value)} />
               </div>
               {inUseOutro(text) ? (
-                <p className="self-start pt-1 font-mono text-2xs uppercase text-ok">In use</p>
+                <p className="self-start pt-1"><span className="badge badge-ok">In use</span></p>
               ) : (
                 <button type="button" className="link-action self-start pt-1" aria-label={`Use outro option ${index + 1}`} onClick={() => withUndo(`Outro option ${index + 1} is now your outro.`, { type: 'USE_OUTRO', index })}>
                   Use this

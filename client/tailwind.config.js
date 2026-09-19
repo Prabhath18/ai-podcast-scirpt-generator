@@ -51,7 +51,7 @@ export default {
       },
       boxShadow: {
         // The only shadow in the product: floating layers (menus, dialogs, toasts).
-        float: '0 8px 24px -8px rgb(30 27 22 / 0.22), 0 1px 3px rgb(30 27 22 / 0.08)',
+        float: '0 8px 24px -8px rgb(17 24 39 / 0.18), 0 1px 3px rgb(17 24 39 / 0.08)',
       },
       maxWidth: { measure: '68ch' },
       keyframes: {

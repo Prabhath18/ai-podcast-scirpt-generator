@@ -1,10 +1,11 @@
 // All state changes for the workspace, as one pure reducer so they can be
 // unit tested without React. The state is what gets persisted to localStorage.
 import { getDemo } from '../services/demoData.js';
+import { WORKSPACE_KEY } from '../services/session.js';
 import { OUTLINE_LIMITS } from './constants.js';
 import { applyVariation, blendSegment } from '../utils/blend.js';
 
-export const STORAGE_KEY = 'podcast-workspace-v1';
+export const STORAGE_KEY = WORKSPACE_KEY;
 
 export const DEFAULT_FORM = {
   topic: '',

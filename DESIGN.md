@@ -7,34 +7,34 @@ Screenshots of every screen are in [docs/screenshots/](docs/screenshots/).
 ## Principles
 
 1. **Structure comes from type and hairlines, not boxes.** There are no card shadows. Segments are separated by a 1px rule; the only shadow in the product (`shadow-float`) belongs to layers that actually float: menus, dialogs, toasts and the drag preview.
-2. **One accent, used sparingly.** A single vermilion marks the primary action, the active segment, the active tab and the current position in the timeline. Everything else is warm neutral.
+2. **One accent, used sparingly.** A single indigo is the primary color on every screen: the primary button, the active segment, the active tab, selected choice chips, the progress bar and the current position in the timeline. Everything else is white, light gray and charcoal, with subtle green, amber and red reserved for status.
 3. **Text first.** Titles and reading text are serif at a 65 to 75 character measure. UI chrome is sans. Timings and labels are mono, so numbers line up.
 4. **Edit in place.** Every piece of content is click-to-edit with predictable keys, so the document never turns into a form.
 5. **Never spend the user's quota by surprise.** Selecting a segment makes no network request. Deep Dive and every generation run only when asked.
 
 ## Color
 
-All colors are CSS variables holding `R G B` triples (`client/src/index.css`), exposed as Tailwind tokens (`client/tailwind.config.js`). The dark theme is its own palette: warmer, with a lighter accent, rather than an inversion of the light one.
+All colors are CSS variables holding `R G B` triples (`client/src/index.css`), exposed as Tailwind tokens (`client/tailwind.config.js`). The dark theme is its own palette (near-black surfaces, a lighter indigo), not an inversion of the light one.
 
 | Token | Role | Light | Dark |
 |---|---|---|---|
-| `paper` | App background | `#F5F1E8` | `#16140F` |
-| `page` | Document, panels, inputs | `#FCFAF5` | `#1D1A14` |
-| `sunken` | Wells, hover fills, timeline blocks | `#EDE8DC` | `#12100C` |
-| `line` | Hairlines between rows | `#DFD8C8` | `#2E2A21` |
-| `line-strong` | Input and button borders | `#C7BEAA` | `#484132` |
-| `ink` | Body text | `#1E1B16` | `#ECE6D8` |
-| `ink-muted` | Secondary text | `#585246` | `#B2AA98` |
-| `ink-faint` | Labels, timings | `#686152` | `#918978` |
-| `accent` | Primary action, active state | `#B8401B` | `#E0704A` |
-| `accent-hover` | Hover for the primary action | `#9C3414` | `#EC8864` |
-| `accent-tint` | Active segment background | `#F3E3DA` | `#3A2218` |
-| `accent-fg` | Text on the accent | `#FFFFFF` | `#1A1108` |
-| `ok` / `ok-tint` | Saved, resolved | `#2F6B3F` / `#E2EEE2` | `#7ABE89` / `#1C2C20` |
-| `warn` / `warn-tint` | Unsaved, stale notes | `#8A5A00` / `#F5E9C8` | `#E0B254` / `#342A14` |
-| `danger` / `danger-tint` | Errors, destructive hover | `#A32A2A` / `#F6DCDA` | `#EB8078` / `#3A1E1C` |
+| `paper` | App background | `#F9FAFB` | `#0F1117` |
+| `page` | Cards, panels, inputs | `#FFFFFF` | `#171A22` |
+| `sunken` | Secondary surfaces, hover fills, skeletons | `#F3F4F9` | `#12141B` |
+| `line` | Hairlines and card borders | `#E5E7EB` | `#262A35` |
+| `line-strong` | Input, button and chip borders | `#D1D5DB` | `#3A4050` |
+| `ink` | Body text (charcoal) | `#1F2937` | `#ECEEF3` |
+| `ink-muted` | Secondary text | `#4B5563` | `#A9AFBD` |
+| `ink-faint` | Labels, timings | `#666E7C` | `#8A91A2` |
+| `accent` | Primary action, active and selected state | `#4F46E5` | `#818CF8` |
+| `accent-hover` | Hover for the primary action | `#4338CA` | `#A5B4FC` |
+| `accent-tint` | Selected chips, active segment | `#EEF2FF` | `#202444` |
+| `accent-fg` | Text on the accent | `#FFFFFF` | `#0F1117` |
+| `ok` / `ok-tint` | Success, saved, resolved | `#15803D` / `#F0FDF4` | `#6EC88C` / `#14281E` |
+| `warn` / `warn-tint` | Warning, unsaved, stale notes | `#A16207` / `#FFFBEB` | `#EAB308` / `#302814` |
+| `danger` / `danger-tint` | Errors, destructive hover | `#B91C1C` / `#FEF2F2` | `#F08A8A` / `#381C1E` |
 
-**Contrast.** Every text and background pair the interface uses meets WCAG AA (4.5:1) in both themes. `node scripts/checkContrast.mjs` (also `npm run check:contrast`) reads the tokens straight from `index.css`, lists all 20 pairs per theme, and fails if any drops below 4.5. Two values were adjusted because of it: light `ink-faint` was darkened to reach 5.0:1 on `sunken`, and the dark `accent-fg` is a near-black, not white, because white on the lighter dark-theme accent is only 3.2:1.
+**Contrast.** Every text and background pair the interface uses meets WCAG AA (4.5:1) in both themes. `node scripts/checkContrast.mjs` (also `npm run check:contrast`) reads the tokens straight from `index.css`, lists all 20 pairs per theme, and fails if any drops below 4.5. The dark `accent-fg` is a near-black, not white, because white on the lighter dark-theme indigo is only 3.0:1; light `ink-faint` and the amber `warn` were tuned to stay above 4.5:1 on white and on their tints.
 
 Color is never the only signal. Status text says "Unsaved changes" as well as being amber; resolved comments say "Resolved"; the active segment has a rule on its left edge as well as a tint.
 
@@ -130,6 +130,34 @@ Motion is 150 to 200 ms with ease-out and used for orientation only: toasts rise
 ## Printable script
 
 The print view (Download Script, then Print or save as PDF) is laid out as a production script: a title block with podcast name, hosts, tone and runtime; then one row per part with a timing column (`00:00 to 06:00`, `6 mins`) beside the content. Segments, the intro, the outro and guest questions are set to avoid splitting across a page (`break-inside: avoid`), headings are set to stay with what follows them, and speaker turns in duo and group scripts are set in a hanging indent. The file is standalone HTML with a print button that hides itself when printing.
+
+## Landing page
+
+`/` is a single page built from the same parts as the app: a light-gray page, serif headings, hairline rules and the shared card, one accent for the primary action. There are no icons beside headings, no gradients and no stock imagery; the hero is a headline, one sentence and two buttons. The proof is a real outline: the sample preview renders the bundled demo with the same gutter, running clock and talking-point dashes as the editor, so what a visitor sees is what they get.
+
+Structure: skip link, `header` with a named `nav`, `main` with named sections (hero, How it works, What you get, sample, closing call to action), `footer`. There is one `h1`. In-page links point at real section ids with `scroll-mt` for the sticky header. Signed-in visitors see **Open app** in place of **Get started**, and the sign-in buttons are held back until the first session check finishes so nothing flickers. On phones the links drop to a second row beneath the wordmark and buttons; the page has no horizontal scroll from 320 to 1440px.
+
+## One set of components
+
+Every screen draws from the same few classes in `client/src/index.css`, so no page carries its own variant of a button, card or badge. Radii: 4px for controls, 8px for cards, dialogs and menus. There are no shadows except `shadow-float` on layers that float.
+
+| Class | Used for |
+|---|---|
+| `.btn`, `.btn-primary`, `.btn-quiet` | Every button. One primary (indigo) per view. |
+| `.field` | Every text input, textarea and select. |
+| `.choice` (+ `.choice-sm`) | Every "pick one": tone, hosts, structures, research and comment scopes, comment filters. Selected is an indigo tint with an indigo border. One `Segmented` component renders them with radio semantics and arrow keys. |
+| `.card`, `.card-muted` | Cards: the sample outline, generation progress, empty states, the "sign in to comment" boxes. |
+| `.callout-ok`, `.callout-warn`, `.callout-danger` | Every inline status message: generation errors, stale Deep Dive notes, failed loads. |
+| `.badge-ok`, `.badge-accent`, `.badge-warn`, `.badge-neutral` | State labels such as Resolved and In use. |
+| `.label`, `.link-action` | Small mono section labels; underlined text actions inside the document. |
+
+Icons come from one set (lucide, 16px, 2px stroke) and are used only where a control has no text: close, theme, and the step checks in generation progress.
+
+## Generation and empty states
+
+- **Generating Outline.** While an outline is generated the New Episode screen shows a card with the title, an estimated progress bar, four steps (Analysing podcast strategy, Structuring narrative flow, Drafting guest questions, Synthesising outline) and a skeleton of the outline to come. The API is one request and reports no stages, so the steps advance on a timer and the bar levels off below 100% until the response arrives; it is an estimate, and its `aria-label` says so. Screen readers get "Step 2 of 4: Structuring narrative flow".
+- **Inline error.** A failed generation shows a red callout under the form, not a toast and not a page: a specific title, one plain sentence about what happened, **Retry Generation** (same request again) and **Back to Edit Settings** (dismisses the error and puts the cursor in the topic field). Focus moves to it. A missing API key adds **Open a demo**.
+- **My episodes, empty.** "No episodes drafted yet", one line of help, and **Create Your First Episode**, which closes the dialog and focuses the topic field.
 
 ## Mark and name
 

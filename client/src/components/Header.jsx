@@ -42,12 +42,12 @@ export default function Header({ status, timeline, onOpenAuth, onOpenProjects, o
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    toast.success("Logged out. Your draft is still saved on this device.");
+    toast.success('Logged out. The draft on this device was cleared.');
   };
 
   const items = isAuthenticated
     ? [
-        onOpenProjects && { label: 'My projects', onClick: onOpenProjects },
+        onOpenProjects && { label: 'My episodes', onClick: onOpenProjects },
         { label: 'Log out', onClick: handleLogout },
       ]
     : [onOpenAuth && { label: 'Log in', onClick: onOpenAuth, primary: true }];

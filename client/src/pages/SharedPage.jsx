@@ -127,7 +127,7 @@ export default function SharedPage() {
         note={
           <>
             You are reading a shared outline. It is read-only.{' '}
-            <Link to="/" className="font-medium text-accent underline underline-offset-4">Plan your own episode</Link>
+            <Link to="/app" className="font-medium text-accent underline underline-offset-4">Plan your own episode</Link>
           </>
         }
         timeline={outline ? { segments, activeId: activeSegmentId, onSelect: setActiveSegmentId } : null}

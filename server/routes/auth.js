@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { validateCredentials } from '../validators/authValidators.js';
 import { signSession, setSessionCookie, clearSessionCookie, requireAuth } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 export const authRouter = Router();
 
@@ -15,8 +16,12 @@ function validationError(errors) {
   return error;
 }
 
+// The strict brute-force limiter guards only the two endpoints that take credentials.
+// /me runs on every page load and /logout is harmless, so they use the general limit;
+// counting them here would lock people out after a handful of reloads.
 authRouter.post(
   '/signup',
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { email, password } = req.body || {};
     const { valid, errors } = validateCredentials({ email, password });
@@ -44,6 +49,7 @@ authRouter.post(
 
 authRouter.post(
   '/login',
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { email, password } = req.body || {};
     const { valid, errors } = validateCredentials({ email, password });

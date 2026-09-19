@@ -1,28 +1,43 @@
-import { useCallback, useEffect, useMemo, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { api } from '../services/api.js';
 import { segmentContentKey } from '../utils/segmentSnapshot.js';
 import { sumDurations } from '../utils/durationMath.js';
 import { useToast } from './useToast.jsx';
-import { STORAGE_KEY, loadInitialState, reducer } from './workspaceReducer.js';
+import { useAuth } from './useAuth.jsx';
+import { EMPTY_STATE, STORAGE_KEY, loadInitialState, reducer } from './workspaceReducer.js';
 
 /**
  * The single source of truth for the episode being edited: the brief (form),
  * the outline, cached Deep Dives, and save/share state. Every edit goes
  * through the reducer in workspaceReducer.js and the whole state is mirrored
- * to localStorage, so a refresh or a logged-out session never loses work.
+ * to localStorage, so a refresh or an anonymous session never loses work. When the
+ * session ends (logout, expiry, or a sign-out in another tab) the whole state is
+ * reset and the stored draft is removed rather than rewritten.
  */
 export function useOutlineWorkspace() {
   const [state, dispatch] = useReducer(reducer, undefined, () => loadInitialState());
   const toast = useToast();
+  const { sessionEpoch } = useAuth();
   const { outline } = state;
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      // The empty state is "nothing to keep": remove the key instead of writing it back,
+      // so a reset (or a fresh visit) leaves localStorage genuinely empty.
+      if (state === EMPTY_STATE) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       /* storage full or unavailable -- editing still works in-memory */
     }
   }, [state]);
+
+  // A session ended somewhere: forget the outline, Deep Dives, open project and share state.
+  const seenEpoch = useRef(sessionEpoch);
+  useEffect(() => {
+    if (seenEpoch.current === sessionEpoch) return;
+    seenEpoch.current = sessionEpoch;
+    dispatch({ type: 'RESET' });
+  }, [sessionEpoch]);
 
   const resolvedTone = state.form.tone === 'Other' ? state.form.customTone.trim() : state.form.tone;
 

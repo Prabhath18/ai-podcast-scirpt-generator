@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PanelSkeleton } from './Skeletons.jsx';
+import { Segmented } from './FormField.jsx';
 import { api, ApiError } from '../services/api.js';
 import { getDemoResearch } from '../services/demoData.js';
 import { OUTLINE_LIMITS } from '../hooks/constants.js';
@@ -98,23 +99,17 @@ export default function ResearchPanel({ workspace, segment, scope, onScopeChange
 
   return (
     <div>
-      <div role="radiogroup" aria-label="Research scope" className="mb-3 inline-flex rounded border border-line-strong bg-sunken p-0.5 text-sm">
-        {[
-          ['segment', 'This segment', Boolean(segment)],
-          ['topic', 'Whole topic', true],
-        ].map(([value, label, available]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={scope === value}
-            disabled={!available}
-            onClick={() => onScopeChange(value)}
-            className={`rounded-sm px-2.5 py-0.5 disabled:opacity-40 ${scope === value ? 'bg-page font-medium text-ink shadow-[0_0_0_1px_rgb(var(--line-strong))]' : 'text-ink-muted hover:text-ink'}`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mb-3">
+        <Segmented
+          label="Research scope"
+          size="sm"
+          value={scope}
+          onChange={onScopeChange}
+          options={[
+            { value: 'segment', label: 'This segment', disabled: !segment },
+            { value: 'topic', label: 'Whole topic' },
+          ]}
+        />
       </div>
 
       {!demoId && (
@@ -136,7 +131,7 @@ export default function ResearchPanel({ workspace, segment, scope, onScopeChange
       {state.status === 'loading' && <div className="mt-4"><PanelSkeleton lines={7} /></div>}
 
       {state.status === 'error' && (
-        <div className="mt-4 rounded-md border border-danger/40 bg-danger-tint p-3 text-sm text-danger" role="alert">
+        <div className="callout callout-danger mt-4" role="alert">
           <p>{state.message}</p>
           <button type="button" className="link-action mt-2 !text-danger" onClick={() => setAttempt((a) => a + 1)}>
             Try again

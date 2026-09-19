@@ -9,56 +9,56 @@
 
 /* ---------------------------------------------------------------------
    Design tokens (see DESIGN.md). Each color is an "R G B" triple so
-   Tailwind can apply opacity. The dark theme is its own palette -- warmer
-   and lower-contrast at the extremes -- not an inversion of the light one,
-   and its accent is a lighter vermilion that keeps 4.5:1 on dark surfaces.
+   Tailwind can apply opacity. One indigo primary on white and light gray,
+   charcoal text, light-gray borders. The dark theme is its own palette
+   (near-black surfaces, a lighter indigo), not an inversion of the light one.
 --------------------------------------------------------------------- */
 :root {
-  --paper: 245 241 232;
-  --page: 252 250 245;
-  --sunken: 237 232 220;
-  --line: 223 216 200;
-  --line-strong: 199 190 170;
+  --paper: 249 250 251;
+  --page: 255 255 255;
+  --sunken: 243 244 249;
+  --line: 229 231 235;
+  --line-strong: 209 213 219;
 
-  --ink: 30 27 22;
-  --ink-muted: 88 82 70;
-  --ink-faint: 104 97 82;
+  --ink: 31 41 55;
+  --ink-muted: 75 85 99;
+  --ink-faint: 102 110 124;
 
-  --accent: 184 64 27;
-  --accent-hover: 156 52 20;
-  --accent-tint: 243 227 218;
+  --accent: 79 70 229;
+  --accent-hover: 67 56 202;
+  --accent-tint: 238 242 255;
   --accent-fg: 255 255 255;
 
-  --ok: 47 107 63;
-  --ok-tint: 226 238 226;
-  --warn: 138 90 0;
-  --warn-tint: 245 233 200;
-  --danger: 163 42 42;
-  --danger-tint: 246 220 218;
+  --ok: 21 128 61;
+  --ok-tint: 240 253 244;
+  --warn: 161 98 7;
+  --warn-tint: 255 251 235;
+  --danger: 185 28 28;
+  --danger-tint: 254 242 242;
 }
 
 .dark {
-  --paper: 22 20 15;
-  --page: 29 26 20;
-  --sunken: 18 16 12;
-  --line: 46 42 33;
-  --line-strong: 72 65 50;
+  --paper: 15 17 23;
+  --page: 23 26 34;
+  --sunken: 18 20 27;
+  --line: 38 42 53;
+  --line-strong: 58 64 80;
 
-  --ink: 236 230 216;
-  --ink-muted: 178 170 152;
-  --ink-faint: 145 137 120;
+  --ink: 236 238 243;
+  --ink-muted: 169 175 189;
+  --ink-faint: 138 145 162;
 
-  --accent: 224 112 74;
-  --accent-hover: 236 136 100;
-  --accent-tint: 58 34 24;
-  --accent-fg: 26 17 8;
+  --accent: 129 140 248;
+  --accent-hover: 165 180 252;
+  --accent-tint: 32 36 68;
+  --accent-fg: 15 17 23;
 
-  --ok: 122 190 137;
-  --ok-tint: 28 44 32;
-  --warn: 224 178 84;
-  --warn-tint: 52 42 20;
-  --danger: 235 128 120;
-  --danger-tint: 58 30 28;
+  --ok: 110 200 140;
+  --ok-tint: 20 40 30;
+  --warn: 234 179 8;
+  --warn-tint: 48 40 20;
+  --danger: 240 138 138;
+  --danger-tint: 56 28 30;
 }
 
 @layer base {
@@ -151,6 +151,62 @@
   /* Small all-caps mono label used for section names and metadata. */
   .label {
     @apply font-mono text-2xs uppercase text-ink-faint;
+  }
+
+  /* Surfaces. One card: white, hairline border, 8px radius, no shadow. */
+  .card {
+    @apply rounded-lg border border-line bg-page;
+  }
+  .card-muted {
+    @apply rounded-lg border border-line bg-sunken;
+  }
+
+  /* Status messages: one shape, three tones. */
+  .callout {
+    @apply rounded-md border px-3 py-2.5 text-sm;
+  }
+  .callout-ok {
+    @apply border-ok/30 bg-ok-tint text-ok;
+  }
+  .callout-warn {
+    @apply border-warn/30 bg-warn-tint text-warn;
+  }
+  .callout-danger {
+    @apply border-danger/30 bg-danger-tint text-danger;
+  }
+
+  /* Badges: small tinted labels for state (Resolved, In use, counts). */
+  .badge {
+    @apply inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-2xs uppercase;
+  }
+  .badge-neutral {
+    @apply bg-sunken text-ink-muted;
+  }
+  .badge-accent {
+    @apply bg-accent-tint text-accent;
+  }
+  .badge-ok {
+    @apply bg-ok-tint text-ok;
+  }
+  .badge-warn {
+    @apply bg-warn-tint text-warn;
+  }
+
+  /* Choice chips: tone, hosts, structures, scopes, filters. Selected = indigo tint and border. */
+  .choice {
+    @apply rounded border border-line-strong bg-page px-2.5 py-1 text-sm text-ink-muted transition-colors duration-150;
+  }
+  .choice:hover:not(:disabled) {
+    @apply border-ink-faint text-ink;
+  }
+  .choice[aria-checked='true'] {
+    @apply border-accent bg-accent-tint font-medium text-ink;
+  }
+  .choice:disabled {
+    @apply opacity-40;
+  }
+  .choice-sm {
+    @apply px-2 py-0.5 text-xs;
   }
 
   /* Click-to-edit text: looks like text, reveals a dashed underline on hover. */

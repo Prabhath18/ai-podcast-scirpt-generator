@@ -8,10 +8,10 @@ This maps each feature to the files that implement it, how to verify it, and its
 
 ## How this was verified
 
-Run `npm install && npm test`. The suites pass: 126 server tests and 72 client tests. `npm run lint` (zero warnings allowed) and `npm run build` are clean, and `npm run check:contrast` confirms every color pair meets WCAG AA in both themes.
+Run `npm install && npm test`. The suites pass: 128 server tests and 106 client tests. `npm run lint` (zero warnings allowed) and `npm run build` are clean, and `npm run check:contrast` confirms every color pair meets WCAG AA in both themes.
 
 - **Server tests** (`server/tests/`) use Vitest and Supertest against an in-memory SQLite database created per test. The LLM module (`services/llm.js`) and `fetch` are mocked, so no test calls Gemini, Wikipedia or NewsAPI. They exercise the real routes, validators, retry logic, permission checks and migrations.
-- **Client tests** (`client/src/tests/`) cover the pure logic: duration normalization, blending, the workspace reducer, export formatting, relative time. They run in Node with no DOM, so React components are not unit tested.
+- **Client tests** (`client/src/tests/`) cover the pure logic (duration normalization, blending, the workspace reducer, export formatting, relative time) in Node, and the session and landing behavior as component tests in jsdom with Testing Library against a fake API (`logout.test.jsx`, `landing.test.jsx`, `generation.test.jsx`). Other components are not unit tested.
 - **Browser runs.** Chrome, driven by Playwright, exercised the running app: 37 checks on editing, keyboard reorder, undo, shortcuts, comments in demo mode, pinning and export, variations and blending, hooks and outros, save prompts and the phone sheet; and a 20-check two-user flow for sharing and comments. Every screen was captured at 375, 768, 1024 and 1440 px in both themes and reviewed (`DESIGN.md` lists what that turned up and how it was fixed). These scripts are not committed.
 - **Live model.** The variations and intro/outro prompts were each run once against the real Gemini API and produced valid output.
 
@@ -29,7 +29,9 @@ Run `npm install && npm test`. The suites pass: 126 server tests and 72 client t
 | 6 | Download Script: Markdown, plain text, print view; includes edits, timings, optional sources | `utils/exportFormatter.js`, `ExportMenu.jsx`, `sample-output/` | `exportFormatter` tests; download each format | Done, tested and run |
 | 7 | Persistence without an account (`localStorage`), including drafts from older versions | `hooks/workspaceReducer.js` (`loadInitialState`), `hooks/useOutlineWorkspace.js` | `workspaceReducer` test "drafts saved before newer fields existed"; refresh the page mid-edit | Done, tested and run |
 | 8 | Accounts, saved projects, ownership, share links | `server/routes/auth.js`, `projects.js`, `shared.js`, `middleware/auth.js`, `AuthModal.jsx`, `ProjectsList.jsx`, `ShareDialog.jsx` | `auth`, `projects` tests; the two-user browser flow | Done, tested and run |
-| 9 | Demo mode: no key needed, includes sample variations, sources, hooks and comments | `client/src/services/demoData.js`, `demoExtras.js`, `sample-output/` | Open a demo from the brief and use every tab; `workspaceReducer` tests load a demo | Done, tested and run |
+| 9 | Routes: landing page at `/`, workspace at `/app`, share view at `/shared/:token`, unknown URLs to `/`; client-side routes survive a refresh on deploy | `client/src/App.jsx`, `pages/LandingPage.jsx`, `client/vercel.json` | `landing.test.jsx`; open `/`, `/app`, a bogus URL; `README.md` "Routes" | Done, tested and run |
+| 10 | Logout and session end: draft, workspace state and open UI are cleared; lands on `/` with `replace`; expired sessions and other tabs handled; anonymous drafts untouched | `hooks/useAuth.jsx`, `services/session.js`, `hooks/useOutlineWorkspace.js`, `AppProviders.jsx` | `logout.test.jsx` (including a slow-`/me` race); the 18-check browser flow | Done, tested and run |
+| 11 | Demo mode: no key needed, includes sample variations, sources, hooks and comments | `client/src/services/demoData.js`, `demoExtras.js`, `sample-output/` | Open a demo from the brief and use every tab; `workspaceReducer` tests load a demo | Done, tested and run |
 
 ## Stretch features from the brief
 
@@ -44,6 +46,10 @@ Run `npm install && npm test`. The suites pass: 126 server tests and 72 client t
 
 | Area | Implementing files | How to verify | Status |
 |---|---|---|---|
+| Generation progress: "Generating Outline", estimated bar, four sequential steps, outline skeleton | `GenerationProgress.jsx`, `pages/WorkspacePage.jsx` | `generation.test.jsx`; generate an outline and watch the New Episode screen | Done, tested and run (steps are timer-based estimates) |
+| Inline generation error: title, explanation, Retry Generation, Back to Edit Settings; no toast, no separate page | `GenerationError.jsx`, `BriefForm.jsx` | `generation.test.jsx`; stop the API and generate | Done, tested and run |
+| My episodes empty state: "No episodes drafted yet" with Create Your First Episode | `ProjectsList.jsx`, `EmptyState.jsx` | `generation.test.jsx`; sign up and open My episodes | Done, tested and run |
+| One visual system: a single indigo primary, white and light-gray surfaces, charcoal text, shared card, callout, badge, chip, button and input styles, in both themes | `client/src/index.css`, `tailwind.config.js`, `FormField.jsx` (`Segmented`), `DESIGN.md` | `npm run check:contrast`; the screenshots in `docs/screenshots/` | Done, tested and run |
 | Design system: tokens, type scale, radii, motion, dark theme | `client/src/index.css`, `client/tailwind.config.js`, `DESIGN.md` | `npm run check:contrast`; toggle the theme | Done, tested and run |
 | Keyboard: shortcuts, arrow-key tabs and segmented controls, keyboard reorder, focus trap and return | `hooks/useHotkeys.js`, `Modal.jsx`, `Tabs.jsx`, `FormField.jsx`, `OutlineDocument.jsx` | Press `?` in the app; the browser runs checked focus in and out of the phone sheet | Done, run by hand only |
 | Responsive at 375, 768, 1024, 1440; no horizontal scroll on phones | `WorkspacePage.jsx`, `SharedPage.jsx`, `SidePanel.jsx` | `npm run screenshots`; the browser run asserts no horizontal scroll at 375 | Done, run by hand only |
@@ -59,6 +65,7 @@ Run `npm install && npm test`. The suites pass: 126 server tests and 72 client t
 | One error shape `{ error, code }` | `server/middleware/errorHandler.js` | Done, tested |
 | Rate limiting, request size limits, caching | `middleware/rateLimiter.js` (general, LLM, auth, research, comment writes); `express.json` limit of 300 KB in `app.js`; `utils/memoryCache.js`; `deep_dive_cache` table | Done, tested |
 | Safe schema changes | `db/migrations.js` with `PRAGMA user_version` | Done, tested |
+| Login limiter scope | Strict limiter on login and signup only (`routes/auth.js`); `/me` and logout use the general limit | Done, tested (`authRateLimit.test.js`) |
 | Secrets only in `server/.env`; nothing committed | `.env.example`, `.gitignore` | Done |
 | Consistent naming | "Podcast Outline AI" in the header, page title, package names and README. The repository folder `ai-podcast-scirpt-generator` has a typo and can be renamed; nothing depends on it | Done |
 

@@ -66,7 +66,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
       {loading && <PanelSkeleton />}
 
       {!loading && errorMsg && (
-        <div className="rounded-md border border-danger/40 bg-danger-tint p-3 text-sm text-danger" role="alert">
+        <div className="callout callout-danger" role="alert">
           <p>{errorMsg}</p>
           <button type="button" className="link-action mt-2 !text-danger" onClick={() => fetchDeepDive(segment)}>
             Try again
@@ -75,7 +75,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
       )}
 
       {!loading && !errorMsg && !cached && (
-        <div className="border border-dashed border-line-strong px-4 py-6">
+        <div className="card-muted px-4 py-6">
           <p className="font-serif text-lg font-semibold">No notes for this segment yet</p>
           <p className="mt-1 text-sm text-ink-muted">Deep Dive writes 2 to 3 paragraphs of research and a few follow-up prompts, using the whole outline for context. It uses one request.</p>
           <button type="button" className="btn btn-primary mt-4" onClick={() => fetchDeepDive(segment)}>Write research notes</button>
@@ -85,7 +85,7 @@ export default function DeepDivePanel({ segment, workspace, requestId, onRequest
       {!loading && !errorMsg && cached && (
         <div className="space-y-5">
           {cached.stale && (
-            <div className="rounded-md border border-warn/40 bg-warn-tint p-3 text-sm text-warn">
+            <div className="callout callout-warn">
               <p>This segment changed after these notes were written.</p>
               <button type="button" className="link-action mt-1 !text-warn" onClick={() => fetchDeepDive(segment)}>
                 Rewrite the notes

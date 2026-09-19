@@ -172,32 +172,32 @@ function isHttpUrl(url) {
 const PRINT_STYLES = `
   @page { size: A4; margin: 18mm 16mm 20mm; }
   * { box-sizing: border-box; }
-  body { margin: 0; color: #1c1a15; background: #fff; font: 11pt/1.5 Newsreader, Georgia, 'Times New Roman', serif; }
+  body { margin: 0; color: #1f2937; background: #fff; font: 11pt/1.5 Newsreader, Georgia, 'Times New Roman', serif; }
   .mono, .time, .kicker, .speaker, .no-print { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
   .sheet { max-width: 180mm; margin: 0 auto; padding: 12mm 0; }
-  .no-print { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #ddd6c6; font-size: 12px; color: #5c564a; background: #f6f3ec; }
-  .no-print button { font: inherit; padding: 6px 12px; border: 1px solid #b8401b; background: #b8401b; color: #fff; border-radius: 4px; cursor: pointer; }
-  .title-block { border-bottom: 2px solid #1c1a15; padding-bottom: 10pt; margin-bottom: 14pt; }
-  .kicker { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: #5c564a; margin: 0 0 6pt; }
+  .no-print { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; background: #f9fafb; }
+  .no-print button { font: inherit; padding: 6px 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; border-radius: 4px; cursor: pointer; }
+  .title-block { border-bottom: 2px solid #1f2937; padding-bottom: 10pt; margin-bottom: 14pt; }
+  .kicker { font-size: 8.5pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 6pt; }
   h1 { font-size: 26pt; line-height: 1.12; font-weight: 600; margin: 0 0 8pt; letter-spacing: -.01em; }
-  .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #5c564a; margin: 0; }
-  .facts b { font-weight: 600; color: #1c1a15; }
-  .teaser { font-style: italic; margin: 10pt 0 0; color: #3b372f; }
-  .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #d9d2c1; break-inside: avoid; page-break-inside: avoid; }
-  .time { font-size: 8.5pt; color: #5c564a; line-height: 1.5; padding-top: 3pt; }
-  .time strong { display: block; color: #1c1a15; font-weight: 600; }
+  .facts { display: flex; flex-wrap: wrap; gap: 4pt 18pt; font-size: 9pt; color: #4b5563; margin: 0; }
+  .facts b { font-weight: 600; color: #1f2937; }
+  .teaser { font-style: italic; margin: 10pt 0 0; color: #374151; }
+  .row { display: grid; grid-template-columns: 30mm 1fr; column-gap: 6mm; padding: 9pt 0; border-bottom: 0.5pt solid #e5e7eb; break-inside: avoid; page-break-inside: avoid; }
+  .time { font-size: 8.5pt; color: #4b5563; line-height: 1.5; padding-top: 3pt; }
+  .time strong { display: block; color: #1f2937; font-weight: 600; }
   h2 { font-size: 14pt; line-height: 1.25; margin: 0 0 4pt; font-weight: 600; break-after: avoid; }
-  h2 .num { color: #b8401b; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
-  .label { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #5c564a; margin: 0 0 3pt; }
+  h2 .num { color: #4f46e5; font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10pt; margin-right: 6pt; }
+  .label { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #4b5563; margin: 0 0 3pt; }
   p { margin: 0 0 5pt; }
   .turn { padding-left: 14mm; text-indent: -14mm; }
-  .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #b8401b; text-indent: 0; }
+  .speaker { display: inline-block; width: 13mm; font-size: 8.5pt; color: #4f46e5; text-indent: 0; }
   ul, ol { margin: 0 0 5pt; padding-left: 16pt; }
   li { margin-bottom: 2pt; }
-  .transition { font-style: italic; color: #3b372f; }
+  .transition { font-style: italic; color: #374151; }
   .sources { margin-top: 6pt; font-size: 9.5pt; }
-  .sources a { color: #1c1a15; }
-  .sources .note { color: #5c564a; font-style: italic; }
+  .sources a { color: #1f2937; }
+  .sources .note { color: #4b5563; font-style: italic; }
   @media print { .no-print { display: none; } .sheet { padding: 0; max-width: none; } }
 `;
 

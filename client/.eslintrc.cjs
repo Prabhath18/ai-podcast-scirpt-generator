@@ -7,5 +7,5 @@ module.exports = {
   rules: {
     'react/prop-types': 'off',
   },
-  overrides: [{ files: ['src/tests/**'], env: { node: true }, globals: { describe: 'readonly', it: 'readonly', expect: 'readonly', vi: 'readonly', beforeEach: 'readonly' } }],
+  overrides: [{ files: ['src/tests/**'], env: { node: true }, globals: { describe: 'readonly', it: 'readonly', expect: 'readonly', vi: 'readonly', beforeEach: 'readonly', afterEach: 'readonly' } }],
 };

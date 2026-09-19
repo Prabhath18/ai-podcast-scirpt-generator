@@ -9,18 +9,7 @@ export default function ToneSelector({ value, customValue, onChange, onCustomCha
         {options.map((tone) => {
           const selected = value === tone;
           return (
-            <button
-              key={tone}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(tone)}
-              className={`rounded border px-2.5 py-1 text-sm transition-colors duration-150 ${
-                selected
-                  ? 'border-accent bg-accent-tint font-medium text-ink'
-                  : 'border-line-strong bg-page text-ink-muted hover:border-ink-faint hover:text-ink'
-              }`}
-            >
+            <button key={tone} type="button" role="radio" aria-checked={selected} onClick={() => onChange(tone)} className="choice">
               {tone}
             </button>
           );

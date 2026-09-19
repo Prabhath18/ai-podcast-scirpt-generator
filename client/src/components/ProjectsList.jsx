@@ -6,7 +6,7 @@ import { api, ApiError } from '../services/api.js';
 import { useToast } from '../hooks/useToast.jsx';
 import { relativeTime } from '../utils/relativeTime.js';
 
-export default function ProjectsList({ onClose, onOpenProject }) {
+export default function ProjectsList({ onClose, onOpenProject, onCreate }) {
   const [projects, setProjects] = useState(null);
   const [error, setError] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
@@ -20,7 +20,7 @@ export default function ProjectsList({ onClose, onOpenProject }) {
       const data = await api.get('/api/projects');
       setProjects(data.projects);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load your projects.');
+      setError(err instanceof ApiError ? err.message : 'Could not load your episodes.');
     }
   };
 
@@ -53,7 +53,7 @@ export default function ProjectsList({ onClose, onOpenProject }) {
   };
 
   return (
-    <Modal title="My projects" onClose={onClose} maxWidthClass="max-w-lg">
+    <Modal title="My episodes" onClose={onClose} maxWidthClass="max-w-lg">
       {projects === null && !error && (
         <div className="flex justify-center py-10 text-ink-muted">
           <Spinner className="h-5 w-5" label="Loading projects" />
@@ -61,14 +61,22 @@ export default function ProjectsList({ onClose, onOpenProject }) {
       )}
 
       {error && (
-        <div className="text-sm text-danger" role="alert">
+        <div className="callout callout-danger" role="alert">
           <p>{error}</p>
           <button type="button" className="link-action mt-2 !text-danger" onClick={load}>Try again</button>
         </div>
       )}
 
       {projects && projects.length === 0 && (
-        <EmptyState title="Nothing saved yet" description="Generate an outline, then choose Save. It will be waiting here on any device." />
+        <EmptyState
+          title="No episodes drafted yet"
+          description="Describe a topic and a tone, generate an outline, then choose Save. Your episodes will be waiting here on any device."
+          action={
+            <button type="button" className="btn btn-primary" onClick={onCreate} data-autofocus>
+              Create Your First Episode
+            </button>
+          }
+        />
       )}
 
       {projects && projects.length > 0 && (
