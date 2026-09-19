@@ -2,6 +2,8 @@
 
 Plan a podcast episode as a document you can edit like a script: a timed outline with talking points and transitions, alternative structures to compare, suggested sources, hooks and outros, and comments from collaborators. Export it as Markdown, plain text or a print-ready production script.
 
+**Live:** [ai-podcast-script-generator.vercel.app](https://ai-podcast-script-generator.vercel.app) (client, on Vercel) · [API health check](https://server-production-2636.up.railway.app/api/health) (server, on Railway). No account is needed to look around: choose **Try a demo** on the landing page.
+
 ![The outline workspace in the light theme](docs/screenshots/outline-light-desktop.png)
 
 | | |
@@ -355,6 +357,8 @@ All calls pass a response schema (`server/prompts/schemas.js`): Gemini enforces 
 ## Deployment
 
 A typical split deployment: static client on Vercel, API on Railway or Render.
+
+This repository is deployed that way: the client at https://ai-podcast-script-generator.vercel.app and the API at https://server-production-2636.up.railway.app (health check: `/api/health`), with `LLM_PROVIDER=gemini` and the SQLite database on a Railway volume mounted at `/data`. Both were deployed with their CLIs (`vercel --prod` from `client/`, `railway up` from `server/`), so pushing to GitHub does not redeploy them.
 
 1. **API.** Deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `LLM_PROVIDER` and its key (`GEMINI_API_KEY` or `HF_TOKEN`), `JWT_SECRET`, `NODE_ENV=production` and `CORS_ORIGIN=https://your-frontend-domain`. Attach a persistent volume and point `DATABASE_PATH` inside it. Optionally set `NEWS_API_KEY` (see the note above about free-tier limits).
 2. **Client.** Deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL` to the API's origin. The app uses client-side routes (`/app`, `/shared/:token`), so the host must serve `index.html` for any path or a refresh on those URLs returns a 404. `client/vercel.json` does this for Vercel (`{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`; real files such as `/assets/*` are still served first). On Netlify use a `_redirects` file containing `/* /index.html 200`; on Nginx, `try_files $uri /index.html;`. `npm run dev` and `vite preview` already fall back to `index.html`.
