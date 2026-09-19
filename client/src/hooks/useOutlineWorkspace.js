@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { api } from '../services/api.js';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { ApiError, StreamFailure, api, streamingSupported } from '../services/api.js';
 import { segmentContentKey } from '../utils/segmentSnapshot.js';
 import { sumDurations } from '../utils/durationMath.js';
 import { useToast } from './useToast.jsx';
@@ -10,6 +10,15 @@ import { EMPTY_STATE, STORAGE_KEY, loadInitialState, reducer } from './workspace
 // Actions that replace the whole working podcast. Answers to requests made for the
 // podcast that was on screen before one of these must not be written into the new one.
 const REPLACES_PODCAST = new Set(['NEW_PODCAST', 'LOAD_PROJECT', 'LOAD_DEMO', 'RESET']);
+
+/**
+ * When the streaming request failed in a way that says "this route or connection is not usable"
+ * (as opposed to "the request was refused"), the ordinary request is worth trying: a missing route
+ * on an older server, or a proxy's non-JSON error page. Anything the API itself answered
+ * (validation, rate limit, an LLM error) is final: asking again would repeat it and spend more quota.
+ */
+const canFallBack = (err) =>
+  err instanceof StreamFailure || (err instanceof ApiError && (err.code === 'UNKNOWN_ERROR' || [404, 405, 501].includes(err.status)));
 
 /**
  * The single source of truth for the episode being edited: the brief (form),
@@ -25,6 +34,9 @@ export function useOutlineWorkspace() {
   const { sessionEpoch } = useAuth();
   const { outline } = state;
   const podcastEpoch = useRef(0);
+  // Real progress from the streaming request (null when not streaming, or when it fell back to the timer estimate).
+  const [streamProgress, setStreamProgress] = useState(null);
+  const streamAbort = useRef(null);
 
   useEffect(() => {
     try {
@@ -43,13 +55,17 @@ export function useOutlineWorkspace() {
     if (seenEpoch.current === sessionEpoch) return;
     seenEpoch.current = sessionEpoch;
     podcastEpoch.current += 1;
+    streamAbort.current?.abort();
     dispatch({ type: 'RESET' });
   }, [sessionEpoch]);
 
   const resolvedTone = state.form.tone === 'Other' ? state.form.customTone.trim() : state.form.tone;
 
   const send = useCallback((type, payload) => {
-    if (REPLACES_PODCAST.has(type)) podcastEpoch.current += 1;
+    if (REPLACES_PODCAST.has(type)) {
+      podcastEpoch.current += 1;
+      streamAbort.current?.abort(); // stop paying for an outline nobody is waiting for
+    }
     dispatch({ type, ...payload });
   }, []);
 
@@ -101,6 +117,32 @@ export function useOutlineWorkspace() {
       dispatch({ type: 'SET_VARIATIONS', variations: result.variations });
       return { skipped: result.skipped, variations: result.variations.length };
     }
+
+    // One outline: stream it, so the progress card shows what the model has actually written. If streaming
+    // cannot be used, fall through to the ordinary request below, which is exactly what ran before streaming existed.
+    if (streamingSupported()) {
+      const controller = new AbortController();
+      streamAbort.current = controller;
+      setStreamProgress({ stage: 'starting', fraction: 0, segmentsDrafted: 0, segmentsExpected: 0, chars: 0 });
+      try {
+        const result = await api.stream('/api/generate-outline/stream', brief, {
+          signal: controller.signal,
+          onEvent: (event, data) => {
+            if (event === 'progress' && isCurrent()) setStreamProgress(data);
+          },
+        });
+        if (!isCurrent()) return { superseded: true };
+        dispatch({ type: 'SET_OUTLINE', outline: result.outline });
+        return { skipped: 0, variations: 0 };
+      } catch (err) {
+        if (err?.name === 'AbortError' || !isCurrent()) return { superseded: true };
+        if (!canFallBack(err)) throw err;
+      } finally {
+        if (streamAbort.current === controller) streamAbort.current = null;
+        setStreamProgress(null);
+      }
+    }
+
     const result = await api.post('/api/generate-outline', brief);
     if (!isCurrent()) return { superseded: true };
     dispatch({ type: 'SET_OUTLINE', outline: result.outline });
@@ -200,6 +242,7 @@ export function useOutlineWorkspace() {
     totalDurationLive,
     dirty,
     hasUnsavedChanges,
+    streamProgress,
     trackPodcast,
     generate,
     getDeepDive,

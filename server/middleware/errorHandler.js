@@ -2,6 +2,7 @@
 // or call next(err); this is the single place that turns that into a
 // response, so every unhandled promise rejection still gets a clean JSON
 // reply instead of Express's default HTML stack trace.
+import { logger } from '../utils/logger.js';
 
 const STATUS_BY_CODE = {
   VALIDATION_ERROR: 400,
@@ -33,17 +34,23 @@ export function notFoundHandler(_req, res) {
   res.status(404).json({ error: 'Not found.', code: 'NOT_FOUND' });
 }
 
-// eslint-disable-next-line no-unused-vars -- Express requires 4 args to identify error middleware
-export function errorHandler(err, req, res, _next) {
+/** The HTTP status and the { error, code } body for an error. Shared with the SSE route, which reports errors as an event. */
+export function toErrorResponse(err) {
   const code = err.code || 'INTERNAL_ERROR';
   const status = err.status || STATUS_BY_CODE[code] || 500;
-
-  if (status >= 500) {
-    // eslint-disable-next-line no-console -- intentional server-side error log
-    console.error(`[error] ${req.method} ${req.originalUrl}:`, err);
-  }
-
   const body = { error: err.publicMessage || err.message || 'Something went wrong.', code };
   if (err.details) body.details = err.details;
+  return { status, body };
+}
+
+/** Logs an error that ends a request as a server failure (5xx). Client errors (4xx) show up in the access log. */
+export function logRequestError(err, { reqId, method, path, status, code }) {
+  if (status >= 500) logger.error({ err, reqId, method, path, status, code }, 'request failed');
+}
+
+// eslint-disable-next-line no-unused-vars -- Express requires 4 args to identify error middleware
+export function errorHandler(err, req, res, _next) {
+  const { status, body } = toErrorResponse(err);
+  logRequestError(err, { reqId: req.id, method: req.method, path: req.originalUrl.split('?')[0], status, code: body.code });
   res.status(status).json(body);
 }

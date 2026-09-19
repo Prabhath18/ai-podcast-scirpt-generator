@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { OutlineSkeleton } from './Skeletons.jsx';
 
@@ -11,14 +11,41 @@ export const GENERATION_STEPS = [
 
 const STEP_MS = 3500;
 
+// Which of the four steps each real stage of the streamed outline belongs to.
+const STEP_FOR_STAGE = { starting: 0, title: 1, intro: 1, segments: 1, questions: 2, outro: 3 };
+
+/** One plain sentence about what the model has just written, from the numbers the server counted. */
+function describeStage({ stage, segmentsDrafted, segmentsExpected }) {
+  switch (stage) {
+    case 'title':
+      return 'Titling the episode.';
+    case 'intro':
+      return 'Writing the intro.';
+    case 'segments':
+      return segmentsDrafted > 0 ? `${segmentsDrafted} of about ${segmentsExpected} segments drafted.` : 'Drafting the first segment.';
+    case 'questions':
+      return 'Writing guest questions.';
+    case 'outro':
+      return 'Writing the outro.';
+    case 'retrying':
+      return "The first draft didn't pass checks. Writing it again.";
+    default:
+      return 'Waiting for the model to start writing.';
+  }
+}
+
 /**
- * Shown while an outline is being generated. The API is one request and reports no
- * stages, so the steps advance on a timer and the bar is an estimate that levels off
- * below 100% until the real response arrives (this component is then unmounted).
- * It changes nothing about how generation works.
+ * Shown while an outline is being generated.
+ *
+ * With `progress` (from the streaming request: what the model has actually written so far), the bar,
+ * the current step and the sentence under it follow the real output. Without it (variations, a browser or
+ * server that cannot stream, or a stream that fell back to the plain request) the API reports no stages,
+ * so the steps advance on a timer and the bar is an estimate that levels off below 100% until the real
+ * response arrives (this component is then unmounted). Either way it changes nothing about how generation works.
  */
-export default function GenerationProgress({ structures = 0 }) {
+export default function GenerationProgress({ structures = 0, progress = null }) {
   const [elapsed, setElapsed] = useState(0);
+  const furthestStep = useRef(0);
 
   useEffect(() => {
     const started = Date.now();
@@ -26,8 +53,16 @@ export default function GenerationProgress({ structures = 0 }) {
     return () => clearInterval(timer);
   }, []);
 
-  const active = Math.min(Math.floor(elapsed / STEP_MS), GENERATION_STEPS.length - 1);
-  const percent = Math.round(92 * (1 - Math.exp(-elapsed / 9000)));
+  const live = progress !== null;
+  let active;
+  if (live) {
+    // A step never goes backwards while writing; a retry (stage "retrying") starts over from the top.
+    furthestStep.current = progress.stage === 'retrying' ? 0 : Math.max(furthestStep.current, STEP_FOR_STAGE[progress.stage] ?? 0);
+    active = furthestStep.current;
+  } else {
+    active = Math.min(Math.floor(elapsed / STEP_MS), GENERATION_STEPS.length - 1);
+  }
+  const percent = live ? Math.round(progress.fraction * 100) : Math.round(92 * (1 - Math.exp(-elapsed / 9000)));
 
   return (
     <section aria-labelledby="generation-title" aria-busy="true" className="mt-6">
@@ -37,12 +72,13 @@ export default function GenerationProgress({ structures = 0 }) {
           <span className="tabular font-mono text-xs text-ink-muted" aria-hidden="true">{percent}%</span>
         </div>
         <p className="mt-1 text-sm text-ink-muted">
-          {structures >= 2 ? `Comparing ${structures} structures. ` : ''}This usually takes 10 to 20 seconds.
+          {structures >= 2 ? `Comparing ${structures} structures. ` : ''}
+          {live ? 'Progress follows what the model has written so far.' : 'This usually takes 10 to 20 seconds.'}
         </p>
 
         <div
           role="progressbar"
-          aria-label="Generation progress (estimated)"
+          aria-label={live ? 'Generation progress' : 'Generation progress (estimated)'}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
@@ -50,6 +86,12 @@ export default function GenerationProgress({ structures = 0 }) {
         >
           <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
         </div>
+
+        {live && (
+          <p className="mt-3 text-sm text-ink-muted" data-testid="generation-detail">
+            {describeStage(progress)}
+          </p>
+        )}
 
         <ol className="mt-5 space-y-2.5">
           {GENERATION_STEPS.map((label, index) => {
@@ -80,6 +122,7 @@ export default function GenerationProgress({ structures = 0 }) {
 
         <p className="sr-only" role="status">
           Step {active + 1} of {GENERATION_STEPS.length}: {GENERATION_STEPS[active]}
+          {live ? `. ${describeStage(progress)}` : ''}
         </p>
       </div>
 

@@ -355,7 +355,7 @@ export default function WorkspacePage() {
           <div className={`min-w-0 max-w-[46rem] ${outline ? '' : 'mx-auto w-full'}`}>
             <BriefForm key={formKey} workspace={workspace} hasOutline={Boolean(outline)} onGeneratingChange={setGenerating} onGenerated={handleGenerated} focusSignal={briefFocus} />
 
-            {generating && <GenerationProgress structures={Number(form.variationCount)} />}
+            {generating && <GenerationProgress structures={Number(form.variationCount)} progress={workspace.streamProgress} />}
 
             {outline && !generating && (
               <div className="mt-6">

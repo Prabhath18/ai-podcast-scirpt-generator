@@ -1,5 +1,7 @@
 # Podcast Outline AI
 
+[![CI](https://github.com/Prabhath18/ai-podcast-scirpt-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/Prabhath18/ai-podcast-scirpt-generator/actions/workflows/ci.yml)
+
 Plan a podcast episode as a document you can edit like a script: a timed outline with talking points and transitions, alternative structures to compare, suggested sources, hooks and outros, and comments from collaborators. Export it as Markdown, plain text or a print-ready production script.
 
 **Live:** [ai-podcast-script-generator.vercel.app](https://ai-podcast-script-generator.vercel.app) (client, on Vercel) · [API health check](https://server-production-2636.up.railway.app/api/health) (server, on Railway). No account is needed to look around: choose **Try a demo** on the landing page.
@@ -25,7 +27,7 @@ More screens: [variations](docs/screenshots/variations-light-desktop.png) · [re
 A user describes an episode (topic, tone, length, hosts, optional guest). The server asks an AI model (Google Gemini by default, or Hugging Face) to produce a structured outline: an intro, 5 to 8 segments (title, 3 to 5 talking points, duration, transition), guest questions, and an outro. The client renders it as a timeline and an editable document.
 
 - **Brief and outline.** Topic, five preset tones or a custom one, podcast name, host count, length, optional guest. Server-side schema validation with one automatic retry; durations always sum exactly to the requested length.
-- **Generation feedback.** While an outline is written, the New Episode screen shows a progress card (estimated bar, four steps, outline skeleton). If generation fails, an inline error explains why and offers **Retry Generation** or **Back to Edit Settings**. **My episodes** has its own empty state with **Create Your First Episode**.
+- **Generation feedback.** While an outline is written, the New Episode screen shows a progress card that follows what the model has actually written (a live bar, four steps and a sentence such as "3 of about 6 segments drafted"), streamed from the server; if streaming is not available it falls back to a timer-based estimate (see "Streaming outline generation"). If generation fails, an inline error explains why and offers **Retry Generation** or **Back to Edit Settings**. **My episodes** has its own empty state with **Create Your First Episode**.
 - **Editing.** Click any text to edit it (Enter saves, Escape discards). Drag segments to reorder, or use the keyboard. Durations, the timeline and the running clock update live. Removals offer Undo.
 - **Multiple outline variations.** Ask for 2 or 3 structures in one request (for example chronological story, problem and solution, myth-busting). Compare them side by side, use one as the working outline, or copy single segments across (add or replace) with durations re-normalized.
 - **Research and source suggestions.** Wikipedia results for a segment or the whole topic (no key needed), and optional recent news through NewsAPI. Pin sources to a segment and include them in the export as a "Sources" section.
@@ -89,8 +91,11 @@ flowchart LR
         Research["services/research.js\n(timeouts, sanitising)"]
         SQLite[("SQLite\nusers, projects, comments,\ndeep_dive_cache")]
         MemCache[("In-memory cache\nanonymous Deep Dive, guest Qs,\nresearch")]
+        Limits["middleware/rateLimiter.js\n(memory, or Redis when REDIS_URL is set)"]
+        Logs["utils/logger.js (pino)\nJSON logs, request ids"]
     end
 
+    Redis[("Redis (optional)\nshared rate-limit counters")]
     Gemini[["Google Gemini API"]]
     HF[["Hugging Face\nInference Providers"]]
     Wiki[["Wikipedia API"]]
@@ -98,6 +103,10 @@ flowchart LR
 
     UI <--> LS
     UI -- "fetch /api/*" --> Routes
+    UI -- "SSE: POST /api/generate-outline/stream" --> Routes
+    Routes --> Limits
+    Limits -.-> Redis
+    Routes -.-> Logs
     Routes --> Helper --> LLM --> Providers
     Providers --> Gemini
     Providers --> HF
@@ -107,11 +116,11 @@ flowchart LR
     Routes --> MemCache
 ```
 
-All LLM calls go through `generate()` in `server/services/llm.js`, wrapped by `llmHelper.js`. `generate()` only chooses a provider; each provider is one small file under `server/services/llm/` and nothing else imports a provider SDK or calls a provider API. See "LLM providers" below. Every external HTTP call (Wikipedia, NewsAPI) is made by the server, never the browser.
+All LLM calls go through `generate()` in `server/services/llm.js`, wrapped by `llmHelper.js`. `generate()` only chooses a provider; each provider is one small file under `server/services/llm/` and nothing else imports a provider SDK or calls a provider API. Streaming goes through a parallel `generateStream()` in the same file, with the same provider selection, fallback and error codes. See "LLM providers" below. Every external HTTP call (Wikipedia, NewsAPI) is made by the server, never the browser.
 
 ## Setup
 
-Requires Node 18.18 or newer.
+Requires Node 20 or newer (the Gemini SDK and the Redis client both need it).
 
 ```bash
 git clone <this-repo> && cd <this-repo>
@@ -157,6 +166,9 @@ Set these in `server/.env` (copied from `.env.example`).
 | `JWT_SECRET` | Yes (production) | insecure dev default | Generate with `openssl rand -hex 32`. |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Comma-separated origins allowed to call the API with credentials. |
 | `NODE_ENV` | No | `development` | Set to `production` when deployed: cookies become `Secure; SameSite=None` for a split frontend and backend. |
+| `REDIS_URL` | No | *(empty)* | Turns on shared rate limiting: every limiter counts in Redis, so several server instances share one budget per client. Unset means the in-memory store, with no other setup. If Redis is unreachable the server logs a warning and counts in memory until it recovers. See "Rate limiting and Redis". |
+| `TRUST_PROXY` | No | *(unset)* | Number of reverse proxies in front of the API (`1` on Railway, Render or Heroku), or `true`, `loopback` or a subnet list. Needed behind a proxy so rate limits count per visitor, not per proxy. Leave unset when the API is reached directly. |
+| `LOG_LEVEL` | No | `info` (`silent` under test) | `trace`, `debug`, `info`, `warn`, `error`, `fatal` or `silent`. See "Logging and request IDs". |
 
 Client build-time variables: `VITE_API_BASE_URL` is the deployed API's origin (leave unset for local development; Vite proxies `/api`). `API_TARGET` overrides the dev proxy target if the API is not on `localhost:8787`.
 
@@ -214,6 +226,7 @@ Failures use one shape: `{ "error": "message", "code": "MACHINE_CODE", "details"
 | Route | Body | Response |
 |---|---|---|
 | `POST /api/generate-outline` | `{ topic, tone, podcastName?, hostCount, lengthMins, includeGuests?, guestNames?, guestBio? }` | `201 { outline }` |
+| `POST /api/generate-outline/stream` | same as above | `text/event-stream` with `start`, `progress`, `result { outline }` and `error { error, code }` events (see "Streaming outline generation"); a request that fails validation or the rate limit gets the ordinary JSON error |
 | `POST /api/generate-variations` | same as above, plus `count` (2 or 3) | `201 { variations: [{ approach, rationale, outline }], skipped }` |
 | `POST /api/intro-outro` | `{ topic, tone, hostCount?, podcastName?, lengthMins, outline }` | `{ introOutro: { hooks, intro_script, outros, teaser } }` |
 | `POST /api/expand-segment` | `{ topic, tone, lengthMins, outline, segment, projectId? }` | `{ deepDive: { notes, discussion_prompts }, cached }` |
@@ -278,7 +291,7 @@ Status codes: `401` when signed out, `404` for an unknown project, link or comme
 **How open models are handled.**
 - The request asks for JSON mode (`response_format: json_object`). Providers differ in support, so if one answers 400 or 422 the adapter sends the request once more without it; the schema is in the prompt either way.
 - The reply goes through the same `llmHelper.js` as Gemini's: it finds the JSON object inside code fences, surrounding prose or a `<think>` block (`server/utils/extractJson.js`), parses it, validates it, and retries once with the validation errors appended.
-- Each request times out after `HF_TIMEOUT_MS` (90 s by default) and reports `LLM_TIMEOUT`.
+- Each request times out after `HF_TIMEOUT_MS` (90 s by default) and reports `LLM_TIMEOUT`. When streaming, it is an idle timeout: the request fails only if no data at all arrives for that long, so a long answer that keeps flowing is not cut off.
 
 **Fallback.** With `LLM_FALLBACK_PROVIDER` set to the other provider, a failed primary call (network error, timeout, rate limit, rejected credentials, empty answer) is retried once on the fallback before an error is returned. A configuration mistake (a missing key, an unknown provider) is never hidden by the fallback. If both fail, the error names both reasons and keeps the usual `{ error, code }` shape.
 
@@ -292,6 +305,41 @@ Status codes: `401` when signed out, `404` for an unknown project, link or comme
 | `LLM_AUTH` | 502 | The provider rejected the token | No |
 | `LLM_PROVIDER_ERROR` | 502 | The provider returned an error or could not be reached | Once |
 | `LLM_INVALID_RESPONSE` | 502 | The answer was not valid JSON or failed validation twice (unchanged) | Once |
+
+## Streaming outline generation
+
+`POST /api/generate-outline/stream` is the same request as `POST /api/generate-outline` (same body, validation, prompt, model call, parse, validate, single retry and post-processing: ids renumbered, durations rescaled to the requested length). Only the delivery differs: the response is a Server-Sent Events stream, so the progress card can show what the model is really doing. SSE was chosen over WebSockets because it is one ordinary HTTP request: it works through the existing CORS and cookie setup, needs no extra infrastructure, and the client reads it with `fetch` (`EventSource` cannot send a POST body).
+
+| Event | Data | Meaning |
+|---|---|---|
+| `start` | `{}` | The stream is open. |
+| `progress` | `{ stage, fraction, segmentsDrafted, segmentsExpected, chars }` | `stage` is `starting`, `title`, `intro`, `segments`, `questions`, `outro` or `retrying`. `fraction` is 0 to 0.95. Sent at most about eight times a second. |
+| `result` | `{ outline }` | The finished, validated outline. Always the last event. |
+| `error` | `{ error, code, details? }` | Instead of `result`: the same body the JSON routes return. |
+
+- **Where the numbers come from.** Each provider streams its own way: Gemini through `generateContentStream` (`services/llm/gemini.js`), Hugging Face with `stream: true` on the chat completions request and the router's SSE chunks parsed in `services/llm/huggingface.js`. `services/llm.js` exposes both behind `generateStream(prompt, schema, onChunk, options)`, next to the unchanged `generate()`. `utils/outlineProgress.js` reads the partial JSON as it arrives and counts complete keys and strings: the title, the intro, how many segments have their last field written, the guest questions, the outro. Those counts are real; "about 6" in "3 of about 6" is an estimate from the episode length, because the model has not said how many segments it will write.
+- **Same guarantees.** The full text still goes through `llmHelper.js` (`callStructuredLLM(..., { onChunk })`): JSON extraction, validation, one retry with the errors fed back, salvage. On a retry, or when the fallback provider takes over, the server sends a `retrying` progress event and the card starts again. A streamed outline that fails validation twice is an `error` event with `LLM_INVALID_RESPONSE`, exactly as the plain route would answer.
+- **Errors.** Before the stream opens (validation, the rate limit, which the two routes share) the answer is ordinary JSON with the usual status. After it opens the status is already 200, so failures arrive as an `error` event.
+- **Leaving.** If the browser goes away (a closed tab, or **New Podcast**), the server aborts the model call and does not retry. A 15 s keep-alive comment and `X-Accel-Buffering: no` keep proxies from closing or buffering a stream that is waiting on a cold model.
+- **Client fallback.** `services/api.js` (`api.stream`) and `useOutlineWorkspace.js` try the stream first for a single outline. If streaming is unsupported, the route is missing (an older server), the response is not a stream, the connection drops or the stream ends without a result, the ordinary request runs instead with the timer-based estimate, so a streaming problem never breaks generation. An answer the server chose to give (a validation error, a rate limit, an `error` event) is final: repeating it as a second request would only spend more quota. Two or three structures (`generate-variations`) are not streamed.
+
+## Rate limiting and Redis
+
+Five limiters (general 100 a minute, LLM 12, research 20, comment writes 15, login and signup 10 per 15 minutes, all per IP) live in `middleware/rateLimiter.js`.
+
+- **Without `REDIS_URL`** they use express-rate-limit's in-memory store, exactly as before: nothing to install or configure, and each server instance counts on its own.
+- **With `REDIS_URL`** every limiter counts in Redis (`rate-limit-redis` over `ioredis`, one key prefix per limiter, for example `rl:llm:<ip>`), so instances share one budget per client. The stream endpoint shares the LLM limiter.
+- **If Redis is unreachable** (a bad URL, the server down, a dropped connection) each limiter falls back to an in-memory store, the server logs one warning per outage (`Redis is unavailable. Rate limits are counted per server instance in memory until Redis is reachable again.`), and it goes back to Redis on its own when the connection returns. It never fails to start or fails a request because of Redis. While it is in memory, limits are per instance again and the two stores' counts are not merged.
+- **Behind a proxy set `TRUST_PROXY`.** The limiters count by client IP. Behind Railway, Render or Heroku that is the proxy's address unless `TRUST_PROXY=1`, and then every visitor would share one budget (in Redis or not). It is off by default because trusting `X-Forwarded-For` with no proxy in front would let anyone dodge the limits.
+- Redis is never opened under `NODE_ENV=test`, so the test suite needs none.
+
+## Logging and request IDs
+
+The server logs structured JSON, one object per line, through pino (`utils/logger.js`); there are no `console` calls left in the server. Set `LOG_LEVEL` to change verbosity. For a readable dev view pipe it through `npx pino-pretty` (not a dependency).
+
+- **Request ID.** Every request gets an id (`middleware/requestId.js`): a well-formed `X-Request-Id` from a proxy is kept (8 to 64 letters, digits, `.`, `_` or `-`), anything else is replaced with a UUID. It is returned in the `X-Request-Id` response header, never in the `{ error, code }` body. The id is carried through async code, so every line logged while handling that request, including the LLM call it triggered, has the same `reqId`.
+- **What is logged.** At start-up: environment, database path, LLM provider, model and fallback, rate-limit store (`memory` or `redis`, and whether Redis has connected), `TRUST_PROXY`, and a warning for each missing key. Per request: method, path (no query string), status, duration and client IP. Per LLM call (`event: "llm_call"`): provider, model, whether it streamed, duration, `ok` or `error` with the error code and character count; plus `llm_fallback` when the fallback provider is used and `outline_stream` when a stream ends. Every server error (5xx) caught by `errorHandler.js`, with the error and stack. Cookies and `Authorization` headers are redacted if ever passed in.
+- **Following one request:** `grep <reqId> server.log` (or `jq 'select(.reqId=="...")'`) shows its access line, its LLM calls and any error together.
 
 ## Alignment with the SRS
 
@@ -320,15 +368,19 @@ All calls pass a response schema (`server/prompts/schemas.js`): Gemini enforces 
 
 ## Testing and verification
 
-`npm test` runs 409 tests: 253 on the server and 156 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
+`npm test` runs 572 tests: 384 on the server and 188 on the client. All pass. `npm run lint` (ESLint, zero warnings allowed) and `npm run build` are clean.
 
 **Server** (Vitest, Supertest, an in-memory SQLite database per test, LLM and `fetch` mocked): outline generation, validation and retry; variations (validator, partial-failure salvage, duplicate approaches, count limits); intro and outro (schema, speaker labels, retry); the research proxy (Wikipedia mapping, fallback query, empty results, upstream failure, caching, news on and off, key sent as a header); comment permissions for owner, commenter, outsider and comments-disabled; input limits and SQL metacharacters; schema migrations (upgrade from a version-0 database with data, idempotence, cascade); project persistence of the optional fields; auth, ownership and share tokens.
 
-**Client** (Vitest): pure logic in Node (duration normalization, the running clock, blending, the workspace reducer, export formatting, relative time), and component tests in jsdom with Testing Library (`logout.test.jsx`, `landing.test.jsx`, `generation.test.jsx`, `printExport.test.jsx`, `newPodcast.test.jsx`). `printExport.test.jsx` covers the whole print workflow (see "Print and PDF export" below); `generation.test.jsx` covers the progress card (title, bar, four steps in order, advancing over time, never reaching 100% early), the inline error (each known failure, Retry Generation re-sending the request, Back to Edit Settings, focus, no toast), and the My episodes empty state with and without saved episodes. The component tests mount the real providers and routes against a fake API and cover: logging out after generating an outline leaves the state, `localStorage` and route (`/`) empty, and replaces the history entry; logout with the server unreachable; an expired session clearing the draft while an anonymous 401 keeps it; a slow `/me` answer not undoing a login; sign-in and sign-out in another tab; the landing page for signed-out and signed-in visitors, its landmarks, headings and demo hand-off; and unknown URLs redirecting to `/`.
+**Client** (Vitest): pure logic in Node (duration normalization, the running clock, blending, the workspace reducer, export formatting, relative time), and component tests in jsdom with Testing Library (`logout.test.jsx`, `landing.test.jsx`, `generation.test.jsx`, `printExport.test.jsx`, `newPodcast.test.jsx`, `streaming.test.jsx`, `streamingUnsupported.test.jsx`). `printExport.test.jsx` covers the whole print workflow (see "Print and PDF export" below); `generation.test.jsx` covers the progress card (title, bar, four steps in order, advancing over time, never reaching 100% early), the inline error (each known failure, Retry Generation re-sending the request, Back to Edit Settings, focus, no toast), and the My episodes empty state with and without saved episodes. The component tests mount the real providers and routes against a fake API and cover: logging out after generating an outline leaves the state, `localStorage` and route (`/`) empty, and replaces the history entry; logout with the server unreachable; an expired session clearing the draft while an anonymous 401 keeps it; a slow `/me` answer not undoing a login; sign-in and sign-out in another tab; the landing page for signed-out and signed-in visitors, its landmarks, headings and demo hand-off; and unknown URLs redirecting to `/`.
+
+**Streaming, the shared rate-limit store and logging** have their own files. Server: `generateOutlineStream.test.js` (the SSE route: event order, real progress, the result identical to the plain route's, retry and fallback events, error events, the client hanging up aborting the model call, the shared LLM limit), `llmStreaming.test.js` and `llmGeminiStreaming.test.js` (both providers streaming, the router's fallback rules), `llmHelperStreaming.test.js` (same parse, validate and retry as before), `outlineProgress.test.js` (the partial-JSON scanner, over every prefix of an outline), `rateLimiterStore.test.js` (no `REDIS_URL` uses memory; a fake Redis client is used and shared between two instances; a connection error, a failure partway through and a malformed URL all fall back to memory with a warning and no unhandled rejection) and `observability.test.js` (request ids, log lines, redaction, `TRUST_PROXY`). Client: `sse.test.js` (the SSE reader) and `streaming.test.jsx` (the progress card following streamed events, and each fallback path). The one existing assertion that spied on `console.warn` for the fallback notice now reads the structured log line instead; nothing else in the existing tests was changed.
 
 **Also run by hand against the running app** (Chrome driven by Playwright, `scripts/screenshots.mjs` and ad-hoc scripts): 37 checks on inline editing, keyboard reorder, undo, shortcuts, local comments, pinning and export with and without sources, using and blending variations, choosing hooks and outros, save prompts, and the phone sheet (focus in, Escape, focus back, no horizontal scroll); an 18-check logout flow (draft survives a refresh, log out from `/app`, storage cleared, Back does not show the old outline, a second tab is sent to `/`, the next visit is an empty brief), and a 20-check two-user flow (owner saves and shares, visitor signs up and comments, owner resolves, comments switched off, sharing stopped). That an email address is never returned in comment data is asserted by a server test, not by the browser run. These scripts are not part of the repository.
 
 **Hugging Face: tested with mocks, plus one real run.** The request shape, JSON extraction, retry behavior, timeouts, error mapping and fallback are verified against mocked HTTP (`llmProviders.test.js`, `llmProvidersRoutes.test.js`, `llmHelper.test.js`, `extractJson.test.js`). Separately, on 19 September 2026 a real `POST /api/generate-outline` (a 20-minute solo episode on "How lighthouses work") was run against the live router with `meta-llama/Llama-3.1-8B-Instruct`: it returned HTTP 201 with an outline that passed the existing validator, and a direct call through the adapter took about 30 s (the route call took 86 s, most likely including a retry, though this was not logged). Raw generation speed on that model was around 17 tokens/s, which is why `HF_TIMEOUT_MS` defaults to 90 s. That is **one** run of one model on one topic: it shows the path works, not how reliably an open model follows the schema. The other prompts (variations, research, intro/outro, deep-dive, guest questions) were not run against Hugging Face, and the fallback was tested only with mocks. A request with a deliberately invalid token also came back as `LLM_AUTH` (HTTP 401), confirming the error mapping against the real endpoint.
+
+**Streaming, run for real.** On 19 September 2026 the running dev server streamed a 20-minute outline from the real Gemini API (`gemini-3.6-flash`): the stream opened at once, the first token came after about 13 s (the model "thinks" first, and no progress exists to show until then), then 20 progress events tracked the real structure (segments 1 to 5, characters 74 to 4,755) and the validated result arrived at 19.8 s. The same request through the real Hugging Face router (`meta-llama/Llama-3.1-8B-Instruct`) gave the first progress after 0.9 s, 132 progress events and the result at 19.5 s. The log lines for that run carried one `reqId` across the access line, the LLM call and the stream summary. A server started with `REDIS_URL` pointing at a port with nothing listening (the real `ioredis` client) booted normally, logged one warning, and still enforced the login limit from memory (10 answers of 401, then 429). **Not run:** a real Redis server (none was available on the machine), so counting in Redis is tested only against a fake client that speaks the same commands; the progress card was tested in jsdom, not watched in a real browser with a live stream; and the GitHub Actions workflow has not run yet (it runs on the first push).
 
 **Live model (Gemini).** The variations and intro/outro prompts were each run once against the real Gemini API (variations: two distinct structures with durations summing to 30; intro/outro for a duo: five hooks in five styles, `Host 1:` and `Host 2:` turns, three outros, a teaser).
 
@@ -340,14 +392,14 @@ All calls pass a response schema (`server/prompts/schemas.js`): Gemini enforces 
 
 - **SQLite persistence.** On hosts with an ephemeral filesystem, `server/data/podcast.sqlite`, with every account, project and comment, is lost on restart. Use a persistent volume (see Deployment).
 - **In-memory caches.** Anonymous Deep Dive, guest-question and research results live in the Node process and reset on restart or across instances.
-- **Per-process rate limiting.** `express-rate-limit` uses its in-memory store, so limits are per instance unless you add a shared store. The strict login limiter (10 per 15 minutes per IP) covers only login and signup; `/me` and logout use the general limit.
+- **Rate limiting is per instance unless you set `REDIS_URL`.** By default `express-rate-limit` counts in memory, so with several instances each has its own budget; with `REDIS_URL` they share one (see "Rate limiting and Redis"). If Redis goes down the limiters fall back to per-instance memory until it returns, and the two counts are not merged. Behind a proxy it also needs `TRUST_PROXY`. The strict login limiter (10 per 15 minutes per IP) covers only login and signup; `/me` and logout use the general limit. The anonymous caches above are still per process; Redis holds only the rate-limit counters.
 - **No email verification or password reset.**
 - **Session marker.** Knowing that "this browser was signed in" lives in `localStorage`, so clearing site data by hand also forgets it; after that a truly expired session looks like an anonymous visit and the stale draft is kept. If the logout request cannot reach the server, this device still forgets the user, but the session cookie remains until it expires.
 - **Comments.** The thread is visible to the owner and to every signed-in visitor holding the link, not only to each author. Comments cannot be edited, only deleted. There are no notifications; new comments appear when the panel is opened or on the next 30-second poll. Comments on a segment that is later removed stay in the database and show under "All" as "Removed segment". Demo comments live in the browser only.
 - **Research.** Search text comes from the segment title and topic, with no LLM keyword step. Wikipedia is English only. NewsAPI's free tier works only from localhost and is limited daily.
 - **Intro and outro.** "Regenerate all" rewrites the whole set (hooks, script, outros, teaser) in one request; single items cannot be regenerated individually.
 - **Variations.** Three are kept at most. Using one replaces the title, intro, segments, guest questions and outro of the working outline (with Undo); the stored alternatives and the intro/outro set are kept. A replaced segment gets a new id, so its old Deep Dive does not carry over.
-- **Progress steps are estimates.** Generation is one API request with no stage reporting, so the four steps in the progress card advance on a timer and the bar levels off below 100% until the response arrives. They do not reflect what the model is actually doing.
+- **Progress.** A single outline streams, so its progress card shows what the model has actually written; there is nothing to show before the first token (about 13 s with the current Gemini model, under a second on Hugging Face), so the bar reads "Waiting for the model to start writing" until then. "Of about N segments" is an estimate from the episode length. The bar is coarse by design: it counts complete parts of the JSON, not tokens. Two or three structures are not streamed and, like any browser or server that cannot stream, use the timer-based estimate (a bar that levels off below 100%, steps that advance on a timer). If a stream breaks partway, the plain request runs from the start, so that generation is paid for twice.
 - **Free-tier model limits.** Variations and intro/outro use one request each on purpose. The LLM endpoints share a limit of 12 requests per minute per IP.
 - **Open models are less reliable than Gemini at following a schema.** The adapter helps (JSON mode, the schema and an example in the prompt, JSON extraction from prose, the shared single retry), but a small model can still fail validation twice and return `LLM_INVALID_RESPONSE`. Timeouts and rate limits are not retried, so a cold-starting model needs a second click.
 - **Hugging Face free credits are small.** A free account gets about $0.10 a month at the time of writing; after that the router answers 402 and the app reports it as `LLM_RATE_LIMITED`. The fallback (`LLM_FALLBACK_PROVIDER=gemini`) covers this.
@@ -360,7 +412,7 @@ A typical split deployment: static client on Vercel, API on Railway or Render.
 
 This repository is deployed that way: the client at https://ai-podcast-script-generator.vercel.app and the API at https://server-production-2636.up.railway.app (health check: `/api/health`), with `LLM_PROVIDER=gemini` and the SQLite database on a Railway volume mounted at `/data`. Both were deployed with their CLIs (`vercel --prod` from `client/`, `railway up` from `server/`), so pushing to GitHub does not redeploy them.
 
-1. **API.** Deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `LLM_PROVIDER` and its key (`GEMINI_API_KEY` or `HF_TOKEN`), `JWT_SECRET`, `NODE_ENV=production` and `CORS_ORIGIN=https://your-frontend-domain`. Attach a persistent volume and point `DATABASE_PATH` inside it. Optionally set `NEWS_API_KEY` (see the note above about free-tier limits).
+1. **API.** Deploy `server/` as a Node service (`npm install && npm start`, working directory `server`). Set `LLM_PROVIDER` and its key (`GEMINI_API_KEY` or `HF_TOKEN`), `JWT_SECRET`, `NODE_ENV=production` and `CORS_ORIGIN=https://your-frontend-domain`. Attach a persistent volume and point `DATABASE_PATH` inside it. Set `TRUST_PROXY=1` so rate limits count per visitor, not per proxy. If you run more than one instance, add a Redis (Railway and Render both offer one) and set `REDIS_URL` so they share the rate limits. Optionally set `NEWS_API_KEY` (see the note above about free-tier limits). Streaming needs no extra setup on Railway or Vercel; behind your own nginx keep `proxy_buffering off` for `/api/` (the API already sends `X-Accel-Buffering: no`).
 2. **Client.** Deploy `client/` (`npm install && npm run build`, output `dist/`). Set `VITE_API_BASE_URL` to the API's origin. The app uses client-side routes (`/app`, `/shared/:token`), so the host must serve `index.html` for any path or a refresh on those URLs returns a 404. `client/vercel.json` does this for Vercel (`{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`; real files such as `/assets/*` are still served first). On Netlify use a `_redirects` file containing `/* /index.html 200`; on Nginx, `try_files $uri /index.html;`. `npm run dev` and `vite preview` already fall back to `index.html`.
 3. **Cookies and CORS.** With the client and API on different domains, the session cookie must be `Secure; SameSite=None`, which the server does when `NODE_ENV=production`, and CORS must list the exact client origin with credentials. If login appears to succeed but `/api/auth/me` never sees the cookie, check both variables.
 4. Run `npm run build` locally first to catch build problems before deploying.

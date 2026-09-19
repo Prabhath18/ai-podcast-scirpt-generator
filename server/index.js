@@ -9,45 +9,55 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
+// dotenv has run, so the logger (which reads LOG_LEVEL) is imported after it.
+const { logger } = await import('./utils/logger.js');
+
 if (!process.env.JWT_SECRET) {
-  // eslint-disable-next-line no-console
-  console.warn('[warn] JWT_SECRET is not set -- using an insecure development default. Set it in .env before deploying.');
+  logger.warn('JWT_SECRET is not set -- using an insecure development default. Set it in .env before deploying.');
   process.env.JWT_SECRET = 'dev-only-insecure-secret-change-me';
 }
 
 const { createDb } = await import('./db/init.js');
 const { createApp } = await import('./app.js');
-
-const databasePath = process.env.DATABASE_PATH || './data/podcast.sqlite';
-const db = createDb(path.resolve(__dirname, databasePath));
-
-// eslint-disable-next-line no-console
-console.log(`[db] Using SQLite database at: ${path.resolve(__dirname, databasePath)}`);
 const { describeLlmConfig } = await import('./services/llm.js');
+const { rateLimitStatus } = await import('./middleware/rateLimiter.js');
+
+const databasePath = path.resolve(__dirname, process.env.DATABASE_PATH || './data/podcast.sqlite');
+const db = createDb(databasePath);
+
 const llm = describeLlmConfig();
-if (llm.primary) {
-  // eslint-disable-next-line no-console
-  console.log(`[llm] Provider: ${llm.primary} (${llm.model})${llm.fallback ? `, falling back to ${llm.fallback}` : ''}`);
-}
+const rateLimits = rateLimitStatus();
+logger.info(
+  {
+    nodeEnv: process.env.NODE_ENV || 'development',
+    database: databasePath,
+    llmProvider: llm.primary,
+    llmModel: llm.model,
+    llmFallback: llm.fallback,
+    // "redis" here means Redis is configured; it may still be connecting (a later line says when it is).
+    rateLimitStore: rateLimits.configured ? 'redis' : 'memory',
+    redisConnected: rateLimits.connected,
+    trustProxy: process.env.TRUST_PROXY || false,
+  },
+  'server configuration',
+);
 for (const problem of llm.problems) {
-  // eslint-disable-next-line no-console
-  console.warn(`[warn] ${problem} Live generation will fail until this is fixed. Use "Try a demo" in the app, or set it in .env.`);
+  logger.warn(`${problem} Live generation will fail until this is fixed. Use "Try a demo" in the app, or set it in .env.`);
 }
 
 const app = createApp(db);
 const port = Number(process.env.PORT) || 8787;
 
 const server = app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`[server] Podcast Outline AI API listening on http://localhost:${port}`);
+  logger.info({ port }, `Podcast Outline AI API listening on http://localhost:${port}`);
 });
 
 server.on('error', (err) => {
-  // eslint-disable-next-line no-console
-  console.error(
+  logger.fatal(
+    { err },
     err.code === 'EADDRINUSE'
-      ? `[server] Port ${port} is already in use -- another dev server is probably still running. Stop it, or set PORT in server/.env.`
-      : `[server] Failed to start: ${err.message}`,
+      ? `Port ${port} is already in use -- another dev server is probably still running. Stop it, or set PORT in server/.env.`
+      : `Failed to start: ${err.message}`,
   );
   process.exit(1);
 });

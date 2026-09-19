@@ -24,9 +24,11 @@ import {
 } from '../validators/requestValidators.js';
 import { normalizeDurations } from '../utils/duration.js';
 import { getCached, setCached, hashKey } from '../utils/memoryCache.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
+import { asyncHandler, logRequestError, toErrorResponse } from '../middleware/errorHandler.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { llmLimiter } from '../middleware/rateLimiter.js';
+import { describeOutlineProgress } from '../utils/outlineProgress.js';
+import { logger } from '../utils/logger.js';
 
 export const outlineRouter = Router();
 outlineRouter.use(optionalAuth);
@@ -51,6 +53,33 @@ function getOwnedProject(db, projectId, userId) {
   return db.prepare('SELECT id FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) || null;
 }
 
+/** The prompt and target length for a validated outline request. Shared by the plain and the streaming route. */
+function buildOutlineRequest(body) {
+  const { topic, tone, podcastName, hostCount, lengthMins, includeGuests, guestNames, guestBio } = body;
+  const prompt = buildOutlinePrompt({
+    topic: topic.trim(),
+    tone: tone.trim(),
+    podcastName: podcastName?.trim(),
+    hostCount,
+    lengthMins: Number(lengthMins),
+    includeGuests: Boolean(includeGuests),
+    guestNames: guestNames?.trim(),
+    guestBio: guestBio?.trim(),
+  });
+  return { prompt, lengthMins: Number(lengthMins) };
+}
+
+/**
+ * Renumbers segment ids 1..N and rescales durations so they always sum to the requested length,
+ * regardless of what the model actually returned.
+ */
+function finalizeOutline(outline, lengthMins) {
+  outline.segments = outline.segments.map((segment, index) => ({ ...segment, id: index + 1 }));
+  outline.segments = normalizeDurations(outline.segments, lengthMins);
+  outline.total_duration_mins = lengthMins;
+  return outline;
+}
+
 // POST /api/generate-outline
 outlineRouter.post(
   '/generate-outline',
@@ -58,28 +87,99 @@ outlineRouter.post(
     const { valid, errors } = validateOutlineRequest(req.body || {});
     if (!valid) throw validationError(errors);
 
-    const { topic, tone, podcastName, hostCount, lengthMins, includeGuests, guestNames, guestBio } = req.body;
-
-    const prompt = buildOutlinePrompt({
-      topic: topic.trim(),
-      tone: tone.trim(),
-      podcastName: podcastName?.trim(),
-      hostCount,
-      lengthMins: Number(lengthMins),
-      includeGuests: Boolean(includeGuests),
-      guestNames: guestNames?.trim(),
-      guestBio: guestBio?.trim(),
-    });
-
+    const { prompt, lengthMins } = buildOutlineRequest(req.body);
     const outline = await callStructuredLLM(prompt, outlineResponseSchema, validateOutline);
 
-    // Renumber segment ids 1..N and rescale durations so they always sum to
-    // the requested length, regardless of what the model actually returned.
-    outline.segments = outline.segments.map((segment, index) => ({ ...segment, id: index + 1 }));
-    outline.segments = normalizeDurations(outline.segments, Number(lengthMins));
-    outline.total_duration_mins = Number(lengthMins);
+    res.status(201).json({ outline: finalizeOutline(outline, lengthMins) });
+  }),
+);
 
-    res.status(201).json({ outline });
+const SSE_HEARTBEAT_MS = 15_000; // keeps proxies from closing a stream that is waiting on a cold model
+const PROGRESS_EVERY_MS = 120; // at most this many progress events per second, however fast tokens arrive
+
+// POST /api/generate-outline/stream
+//
+// The same request, validation, prompt, model call, parse/validate/retry-once and post-processing as
+// /api/generate-outline. The difference is delivery: the response is a Server-Sent Events stream, so
+// the client sees real progress while the model writes.
+//
+//   event: start     { }                                   the stream is open
+//   event: progress  { stage, fraction, segmentsDrafted, segmentsExpected, chars }
+//                    stage: starting | title | intro | segments | questions | outro | retrying
+//   event: result    { outline }                           the finished, validated outline (last event)
+//   event: error     { error, code, details? }             instead of result; same body as the JSON errors
+//
+// A request that fails validation (or the rate limit) is answered as ordinary JSON with the usual
+// status, because nothing has been streamed yet. Once the stream is open, failures are `error` events.
+outlineRouter.post(
+  '/generate-outline/stream',
+  asyncHandler(async (req, res) => {
+    const { valid, errors } = validateOutlineRequest(req.body || {});
+    if (!valid) throw validationError(errors);
+
+    const { prompt, lengthMins } = buildOutlineRequest(req.body);
+    const started = Date.now();
+
+    // Stop asking the model if the browser goes away (tab closed, "New Podcast" clicked, network dropped).
+    const controller = new AbortController();
+    res.on('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
+
+    res.status(200).set({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // tell nginx-style proxies not to hold the stream back
+    });
+    res.flushHeaders();
+    res.socket?.setNoDelay(true);
+
+    const send = (event, data) => {
+      if (res.writableEnded || res.destroyed) return;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const heartbeat = setInterval(() => {
+      if (!res.writableEnded && !res.destroyed) res.write(': keep-alive\n\n');
+    }, SSE_HEARTBEAT_MS);
+
+    let text = '';
+    let lastProgressAt = 0;
+    let outcome = 'ok';
+    send('start', {});
+
+    try {
+      const outline = await callStructuredLLM(prompt, outlineResponseSchema, validateOutline, {
+        signal: controller.signal,
+        onChunk: (delta) => {
+          text += delta;
+          const now = Date.now();
+          if (now - lastProgressAt < PROGRESS_EVERY_MS) return;
+          lastProgressAt = now;
+          send('progress', describeOutlineProgress(text, { lengthMins }));
+        },
+        // The text starts over (a retry after a failed validation, or the fallback provider): say so and reset.
+        onRestart: ({ reason }) => {
+          text = '';
+          lastProgressAt = 0;
+          send('progress', { stage: 'retrying', reason, fraction: 0, segmentsDrafted: 0, segmentsExpected: describeOutlineProgress('', { lengthMins }).segmentsExpected, chars: 0 });
+        },
+      });
+      send('result', { outline: finalizeOutline(outline, lengthMins) });
+    } catch (err) {
+      if (controller.signal.aborted) {
+        outcome = 'client_disconnected';
+      } else {
+        const { status, body } = toErrorResponse(err);
+        outcome = body.code;
+        logRequestError(err, { reqId: req.id, method: req.method, path: req.originalUrl.split('?')[0], status, code: body.code });
+        send('error', body);
+      }
+    } finally {
+      clearInterval(heartbeat);
+      logger.info({ event: 'outline_stream', outcome, durationMs: Date.now() - started, chars: text.length }, 'outline stream finished');
+      res.end();
+    }
   }),
 );
 

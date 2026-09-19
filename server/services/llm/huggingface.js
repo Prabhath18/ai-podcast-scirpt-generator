@@ -5,7 +5,8 @@
 //   HF_MODEL        an org/model id, optionally with a routing suffix (":fastest", ":cheapest",
 //                   or ":<provider>", e.g. "meta-llama/Llama-3.1-8B-Instruct:nscale").
 //   HF_BASE_URL     override the router URL.
-//   HF_TIMEOUT_MS   per-request timeout (default 60s: models can cold-start).
+//   HF_TIMEOUT_MS   per-request timeout (default 90s: models can cold-start). When streaming it is an
+//                   idle timeout: the request fails if no data at all arrives for this long.
 //   HF_MAX_TOKENS   output cap (default 6000: three outline variations are long).
 //
 // Open models do not reliably enforce a schema, so this adapter (1) asks for JSON mode,
@@ -117,6 +118,35 @@ function contentOf(data) {
   return '';
 }
 
+/** Everything both calls need, read from the environment at call time. Throws LLM_NOT_CONFIGURED without a token. */
+function readSettings() {
+  const token = process.env.HF_TOKEN?.trim();
+  if (!token) {
+    throw llmError('LLM_NOT_CONFIGURED', 'HF_TOKEN is not configured on the server. It is required to use the Hugging Face provider.');
+  }
+  const baseUrl = (process.env.HF_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  return {
+    token,
+    model: process.env.HF_MODEL?.trim() || DEFAULT_HF_MODEL,
+    url: `${baseUrl}/chat/completions`,
+    timeoutMs: positiveNumberFromEnv('HF_TIMEOUT_MS', DEFAULT_TIMEOUT_MS),
+    maxTokens: positiveNumberFromEnv('HF_MAX_TOKENS', DEFAULT_MAX_TOKENS),
+  };
+}
+
+function requestBody({ model, maxTokens }, prompt, responseSchema, stream) {
+  return {
+    model,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: buildHuggingFacePrompt(prompt, responseSchema) },
+    ],
+    temperature: TEMPERATURE,
+    max_tokens: maxTokens,
+    stream,
+  };
+}
+
 /**
  * Calls the chat completions endpoint once and returns the model's raw text.
  * @param {string} prompt Full prompt text.
@@ -124,25 +154,9 @@ function contentOf(data) {
  * @returns {Promise<string>}
  */
 export async function generateWithHuggingFace(prompt, responseSchema) {
-  const token = process.env.HF_TOKEN?.trim();
-  if (!token) {
-    throw llmError('LLM_NOT_CONFIGURED', 'HF_TOKEN is not configured on the server. It is required to use the Hugging Face provider.');
-  }
-  const model = process.env.HF_MODEL?.trim() || DEFAULT_HF_MODEL;
-  const baseUrl = (process.env.HF_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
-  const timeoutMs = positiveNumberFromEnv('HF_TIMEOUT_MS', DEFAULT_TIMEOUT_MS);
-  const url = `${baseUrl}/chat/completions`;
-
-  const body = {
-    model,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildHuggingFacePrompt(prompt, responseSchema) },
-    ],
-    temperature: TEMPERATURE,
-    max_tokens: positiveNumberFromEnv('HF_MAX_TOKENS', DEFAULT_MAX_TOKENS),
-    stream: false,
-  };
+  const settings = readSettings();
+  const { token, model, url, timeoutMs } = settings;
+  const body = requestBody(settings, prompt, responseSchema, false);
 
   // JSON mode is provider-dependent. Ask for it, and if the provider says the request is
   // malformed (400/422), send it once more without `response_format`: the prompt still has the schema.
@@ -155,4 +169,144 @@ export async function generateWithHuggingFace(prompt, responseSchema) {
   const text = contentOf(result.data);
   if (!text.trim()) throw llmError('LLM_EMPTY_RESPONSE', 'Hugging Face returned an empty response.');
   return text;
+}
+
+// --- Streaming ---------------------------------------------------------------------------------
+
+/** The text carried by one streamed chunk (`choices[0].delta.content`), or ''. */
+function deltaOf(chunk) {
+  const content = chunk?.choices?.[0]?.delta?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) return content.map((part) => (typeof part === 'string' ? part : part?.text ?? '')).join('');
+  return '';
+}
+
+/**
+ * One streamed POST. Returns { ok: false, status, data } for an HTTP error (nothing was streamed),
+ * or { ok: true, text } once the stream ends. `onDelta` runs for each piece of text.
+ * `idleMs` is an idle timeout: it restarts on every chunk, so a long answer is fine as long as it keeps flowing.
+ */
+async function streamChat(url, token, body, { idleMs, signal, onDelta }) {
+  const controller = new AbortController();
+  let timedOut = false;
+  let idle;
+  const restartIdleTimer = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, idleMs);
+  };
+  const onCallerAbort = () => controller.abort();
+  signal?.addEventListener('abort', onCallerAbort, { once: true });
+  if (signal?.aborted) controller.abort();
+  restartIdleTimer();
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const raw = await response.text();
+      let data = raw;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        /* keep the text for the error detail */
+      }
+      return { ok: false, status: response.status, data };
+    }
+    if (!response.body) throw llmError('LLM_PROVIDER_ERROR', 'Hugging Face answered without a stream.');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let pending = '';
+    let text = '';
+    let finished = false;
+
+    const handleLine = (line) => {
+      if (!line.startsWith('data:')) return; // comments (": keep-alive") and other SSE fields
+      const payload = line.slice(5).trim();
+      if (!payload) return;
+      if (payload === '[DONE]') {
+        finished = true;
+        return;
+      }
+      let chunk;
+      try {
+        chunk = JSON.parse(payload);
+      } catch {
+        return; // a malformed chunk is skipped; what is missing shows up when the JSON is validated
+      }
+      if (chunk?.error) {
+        throw llmError('LLM_PROVIDER_ERROR', `Hugging Face reported an error while streaming (${detailFrom(chunk) || 'unknown'}).`);
+      }
+      const delta = deltaOf(chunk);
+      if (delta) {
+        text += delta;
+        onDelta(delta);
+      }
+    };
+
+    while (!finished) {
+      // eslint-disable-next-line no-await-in-loop -- reading a stream is inherently sequential
+      const { value, done } = await reader.read();
+      if (done) break;
+      restartIdleTimer();
+      pending += decoder.decode(value, { stream: true });
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop(); // the last piece may be half a line
+      lines.forEach(handleLine);
+    }
+    if (pending) handleLine(pending);
+    return { ok: true, text };
+  } catch (err) {
+    if (err?.code) throw err; // already one of ours
+    if (err?.name === 'AbortError') {
+      if (timedOut) {
+        const seconds = Math.max(1, Math.round(idleMs / 1000));
+        throw llmError(
+          'LLM_TIMEOUT',
+          `Hugging Face sent nothing for ${seconds} second${seconds === 1 ? '' : 's'}. The model may be cold-starting; try again, or raise HF_TIMEOUT_MS.`,
+        );
+      }
+      throw llmError('LLM_ABORTED', 'The request was cancelled.');
+    }
+    throw llmError('LLM_PROVIDER_ERROR', `Lost the connection to Hugging Face (${err?.message || 'network error'}).`);
+  } finally {
+    clearTimeout(idle);
+    signal?.removeEventListener('abort', onCallerAbort);
+  }
+}
+
+/**
+ * The same call, streamed (`stream: true`): `onChunk(delta)` runs for each piece of text as the model
+ * produces it, and the full text is returned at the end, exactly what generateWithHuggingFace would return.
+ * Aborting `signal` (the client went away) stops the request.
+ *
+ * @param {string} prompt
+ * @param {object} [responseSchema]
+ * @param {(delta: string) => void} onChunk
+ * @param {{ signal?: AbortSignal }} [options]
+ * @returns {Promise<string>}
+ */
+export async function streamWithHuggingFace(prompt, responseSchema, onChunk, { signal } = {}) {
+  const settings = readSettings();
+  const { token, model, url, timeoutMs } = settings;
+  const body = requestBody(settings, prompt, responseSchema, true);
+  const options = { idleMs: timeoutMs, signal, onDelta: onChunk };
+
+  // Same JSON-mode handling as the non-streaming call: ask for it, and retry once without it if the provider refuses.
+  let result = await streamChat(url, token, responseSchema ? { ...body, response_format: { type: 'json_object' } } : body, options);
+  if (!result.ok && responseSchema && (result.status === 400 || result.status === 422)) {
+    result = await streamChat(url, token, body, options);
+  }
+  if (!result.ok) throw failureFor(result.status, result.data, model);
+
+  if (!result.text.trim()) throw llmError('LLM_EMPTY_RESPONSE', 'Hugging Face returned an empty response.');
+  return result.text;
 }

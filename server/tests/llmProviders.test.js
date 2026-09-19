@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { bodyOfCall, chatResponse, errorResponse, isolateLlmEnv, neverAnswers } from './llmTestUtils.js';
 import { guestQuestionsResponseSchema } from '../prompts/schemas.js';
+import { captureLogs } from '../utils/logger.js';
 
 // The Gemini SDK is replaced; the router (services/llm.js) and the Hugging Face adapter are real,
 // and Hugging Face's HTTP endpoint is a fetch mock. Nothing here touches the network.
@@ -15,16 +16,17 @@ import { DEFAULT_HF_MODEL, buildHuggingFacePrompt } from '../services/llm/huggin
 
 let restoreEnv;
 let fetchMock;
-let warn;
+let logs; // the server's structured log, collected (the fallback notice is a warn-level log line)
 
 beforeEach(() => {
   restoreEnv = isolateLlmEnv();
   generateWithGemini.mockReset();
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
-  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  logs = captureLogs('warn');
 });
 afterEach(() => {
+  logs.restore();
   restoreEnv();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -408,7 +410,7 @@ describe('fallback provider', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(generateWithGemini).toHaveBeenCalledTimes(1);
     expect(generateWithGemini).toHaveBeenCalledWith('p', guestQuestionsResponseSchema);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('huggingface failed'));
+    expect(logs.lines.some((line) => line.event === 'llm_fallback' && line.msg.includes('huggingface failed'))).toBe(true);
   });
 
   it('works the other way round: Gemini primary, Hugging Face fallback', async () => {
@@ -473,7 +475,7 @@ describe('fallback provider', () => {
     expect(error.code).toBe('LLM_PROVIDER_ERROR');
     expect(error.message).not.toContain('fallback');
     expect(generateWithGemini).not.toHaveBeenCalled();
-    expect(warn).not.toHaveBeenCalled();
+    expect(logs.lines.some((line) => line.event === 'llm_fallback')).toBe(false);
   });
 
   it('does not call the fallback when the primary succeeds', async () => {

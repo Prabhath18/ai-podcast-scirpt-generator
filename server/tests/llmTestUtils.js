@@ -46,3 +46,50 @@ export const neverAnswers = () =>
 
 /** The parsed JSON body of the nth fetch call. */
 export const bodyOfCall = (fetchMock, n = 0) => JSON.parse(fetchMock.mock.calls[n][1].body);
+
+// --- Streaming ---------------------------------------------------------------------------------
+
+/** One streamed chat-completion chunk, as a Server-Sent Events frame. */
+export const hfDelta = (content) => `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content } }] })}\n\n`;
+
+export const HF_DONE = 'data: [DONE]\n\n';
+
+/**
+ * A fetch that answers with a streamed body made of `pieces`, in order. Each piece is a string (sent as
+ * one network chunk, so a piece may end mid-line), a number (wait that many ms), or an Error (the
+ * connection breaks). `stall` leaves the stream open at the end, like a model that stopped talking.
+ * Aborting the request's signal errors the stream, as a real fetch does.
+ */
+export const streamingFetch = (pieces, { stall = false, status = 200 } = {}) =>
+  vi.fn((_url, { signal } = {}) => {
+    // Like the real fetch: a request whose signal has already been aborted never starts.
+    if (signal?.aborted) return Promise.reject(Object.assign(new Error('This operation was aborted'), { name: 'AbortError' }));
+    const encoder = new TextEncoder();
+    let cancelled = false;
+    const body = new ReadableStream({
+      async start(controller) {
+        signal?.addEventListener('abort', () => {
+          cancelled = true;
+          try {
+            controller.error(Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' }));
+          } catch {
+            /* already closed */
+          }
+        });
+        for (const piece of pieces) {
+          if (cancelled) return;
+          if (typeof piece === 'number') {
+            // eslint-disable-next-line no-await-in-loop -- a scripted delay between chunks
+            await new Promise((resolve) => setTimeout(resolve, piece));
+          } else if (piece instanceof Error) {
+            controller.error(piece);
+            return;
+          } else {
+            controller.enqueue(encoder.encode(piece));
+          }
+        }
+        if (!stall && !cancelled) controller.close();
+      },
+    });
+    return Promise.resolve(new Response(body, { status, headers: { 'content-type': 'text/event-stream' } }));
+  });

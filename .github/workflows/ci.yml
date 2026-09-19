@@ -1,0 +1,48 @@
+name: CI
+
+# Lint, test and build on every push to main and on every pull request against it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch or pull request makes the older run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, test and build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json says node >=18.18; these are the two current LTS lines.
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # npm workspaces: one install at the root covers both client/ and server/.
+      - name: Install
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      # No API keys and no Redis are needed: the LLM and network calls are mocked, and Redis is never opened under test.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
