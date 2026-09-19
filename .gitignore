@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.local
+server/data/*.sqlite
+server/data/*.sqlite-journal
+server/data/*.db
+!server/data/.gitkeep
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+coverage/
+.vscode/*
+!.vscode/extensions.json
+*.tgz
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
+Claude outputs/

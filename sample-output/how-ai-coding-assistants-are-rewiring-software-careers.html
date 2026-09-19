@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>How AI Coding Assistants Are Rewiring Software Careers</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 2rem auto; padding: 0 1.5rem; color: #17181f; line-height: 1.5; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+  .meta { color: #555; margin-bottom: 1.5rem; }
+  .pill { font-size: 0.75rem; font-weight: normal; color: #555; border: 1px solid #ccc; border-radius: 999px; padding: 0.1rem 0.6rem; margin-left: 0.5rem; }
+  .transition { font-style: italic; color: #444; }
+  ol { padding-left: 1.25rem; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+  <h1>How AI Coding Assistants Are Rewiring Software Careers</h1>
+  <p class="meta">Tone: Educational &middot; Total length: 45 mins</p>
+  <section><h2>Intro</h2><p>Six months ago, writing a function meant typing every line yourself. Today, a growing share of developers describe their code as co-written with an AI. In the next 45 minutes, we&#39;re breaking down how these tools actually work, where they help, where they quietly hurt you, and what it means for anyone building a career in software right now.</p></section>
+  
+      <section class="segment">
+        <h2>Segment 1: From Autocomplete to Autonomous Agents <span class="pill">6 mins</span></h2>
+        <ul><li>Trace the lineage: basic autocomplete, GitHub Copilot in 2021, chat-based assistants, and now agentic tools that can open files, run commands, and iterate on their own</li><li>Explain the core technique -- large language models trained on public code plus reinforcement learning from human coder feedback</li><li>Contrast &#39;suggests the next line&#39; tools with &#39;plans and executes a multi-file change&#39; tools, since listeners often conflate the two</li><li>Note the speed of the shift: three product categories emerged in under four years</li></ul>
+        <p class="transition">Transition: That history explains what these tools ARE. Now let&#39;s talk about what they&#39;re actually good at.</p>
+      </section>
+
+      <section class="segment">
+        <h2>Segment 2: Where They Genuinely Save Time <span class="pill">8 mins</span></h2>
+        <ul><li>Boilerplate and glue code: API clients, config files, test scaffolding -- the tedious 20% that rarely needs creativity</li><li>Reading unfamiliar codebases faster by asking the assistant to summarize a module before diving in</li><li>Turning a vague bug report into a first hypothesis by pointing the assistant at the stack trace</li><li>Translating between languages or frameworks, e.g. porting a Python script to TypeScript</li></ul>
+        <p class="transition">Transition: Those are real wins. But there&#39;s a flip side that doesn&#39;t get talked about enough.</p>
+      </section>
+
+      <section class="segment">
+        <h2>Segment 3: The Hidden Costs: Skill Atrophy and Silent Bugs <span class="pill">8 mins</span></h2>
+        <ul><li>Junior developers who lean on AI for logic they don&#39;t understand yet, and what that does to debugging skills a year later</li><li>Confidently wrong code: assistants that produce plausible-looking but subtly incorrect logic, especially around edge cases and concurrency</li><li>Security concerns -- models trained on public repos can reproduce insecure patterns (hardcoded secrets, SQL injection-prone queries)</li><li>The &#39;review fatigue&#39; problem: when 80% of a PR is AI-generated, human reviewers start rubber-stamping</li></ul>
+        <p class="transition">Transition: So how should a working developer actually use these tools without falling into those traps?</p>
+      </section>
+
+      <section class="segment">
+        <h2>Segment 4: A Practical Framework for Using AI Assistants Well <span class="pill">8 mins</span></h2>
+        <ul><li>Rule of thumb: use AI to go from zero to a draft, never to skip understanding the draft you ship</li><li>Always ask the assistant to explain its own reasoning before accepting a nontrivial change</li><li>Treat AI-generated tests with suspicion -- verify they actually fail before the fix and pass after</li><li>Keep a personal list of mistakes the assistant has made for you, and re-check for those patterns specifically</li></ul>
+        <p class="transition">Transition: That&#39;s the individual-developer view. Zoom out, and this is reshaping entire teams and hiring pipelines.</p>
+      </section>
+
+      <section class="segment">
+        <h2>Segment 5: What This Means for Hiring and Team Structure <span class="pill">8 mins</span></h2>
+        <ul><li>Interview formats shifting away from pure algorithm puzzles toward code review and debugging exercises</li><li>Smaller teams shipping more -- what a 4-person startup can now build that used to need 12 people</li><li>The growing premium on system design and architecture skills, since AI is weaker at whole-system tradeoffs than at local code</li><li>Early evidence on junior hiring: some companies hiring fewer juniors, others betting junior-plus-AI is a training accelerator</li></ul>
+        <p class="transition">Transition: Let&#39;s bring this back to something concrete: what should a developer listening right now actually do this month?</p>
+      </section>
+
+      <section class="segment">
+        <h2>Segment 6: Your Move: Building an AI-Complementary Skill Set <span class="pill">7 mins</span></h2>
+        <ul><li>Double down on the things AI is still bad at: system design, cross-team communication, judgment calls under ambiguity</li><li>Practice writing precise, specific prompts as a skill in itself -- vague prompts produce vague code</li><li>Keep at least one project where you deliberately code without assistance, to keep your unaided skills sharp</li><li>Where to start experimenting this week without a big commitment</li></ul>
+        <p class="transition">Transition: Let&#39;s wrap up with the big picture.</p>
+      </section>
+  <section><h2>Guest Questions</h2><ol><li>You shipped one of the first AI coding assistants used at scale -- what surprised you most about how developers actually used it, versus how you expected them to?</li><li>What is the single most common mistake you see developers make when they start relying on AI assistants?</li><li>Do you think today&#39;s junior developers are learning differently -- worse, better, or just different -- than developers did ten years ago?</li><li>Where does the current generation of AI coding tools completely fall apart?</li><li>If you were mentoring a junior developer today, what would you tell them to deliberately practice without AI help?</li><li>Five years from now, what&#39;s one part of the software job that you&#39;re confident AI still won&#39;t touch?</li></ol></section>
+  <section><h2>Outro</h2><p>That&#39;s a wrap on how AI coding assistants are reshaping the way we build software. If one thing stuck with you today, let it be this: these tools are extraordinary at generating code, but understanding what that code does is still entirely on you. Subscribe if you want more episodes untangling how AI is changing technical careers, and send us the tool you can&#39;t stop arguing about with your team.</p></section>
+</body>
+</html>
